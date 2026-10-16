@@ -7,8 +7,8 @@ every other target builds the upstream code:
 - `src/vulkan/ps5.rs` (new): the instance's entry points from `vk_icdGetInstanceProcAddr`, RADV's
   ICD entry point linked into the title (PS5_Vulkan's release archive), instead of `dlopen`ing a
   loader the console does not have; and `create_surface_ps5_display`, a VK_KHR_display plane
-  surface on the first display in the mode `$PS5_DISPLAY_MODE` names (else 1920x1080 when
-  offered, else the largest), at the refresh closest to 60 Hz; and `display_size`, that mode's
+  surface on the first display in the mode `$PS5_DISPLAY_MODE` names (else the largest,
+  3840x2160), at the refresh closest to 60 Hz; and `display_size`, that mode's
   size asked of a short-lived instance, exported as `vulkan::ps5_display_size` so the window can
   be given it before the renderer starts.
 - `src/vulkan/mod.rs`: declares the module and re-exports `ps5_display_size`.

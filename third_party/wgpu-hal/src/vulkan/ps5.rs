@@ -35,9 +35,9 @@ fn requested_size() -> Option<(u32, u32)> {
     Some((w.parse().ok()?, h.parse().ok()?))
 }
 
-/// Which of the display's modes to present in: the requested size when it has a mode, else
-/// 1920x1080 when the display offers it (a 4K mode quadruples every frame's fill for a game
-/// built around 1080p), else the display's largest; at that size the refresh closest to 60 Hz,
+/// Which of the display's modes to present in: the requested size when it has a mode, else the
+/// display's largest (3840x2160 on the console, which VideoOut scales to whatever the screen
+/// takes); at that size the refresh closest to 60 Hz,
 /// which the game's frame pacing is built around (a 120 Hz mode would double every frame's CPU
 /// cost for nothing it shows).
 fn choose_mode(modes: &[vk::DisplayModePropertiesKHR]) -> Option<vk::DisplayModePropertiesKHR> {
@@ -51,7 +51,6 @@ fn choose_mode(modes: &[vk::DisplayModePropertiesKHR]) -> Option<vk::DisplayMode
     };
     let size = requested_size()
         .filter(offered)
-        .or_else(|| Some((1920, 1080)).filter(offered))
         .or_else(|| {
             modes.iter().max_by_key(|m| area(m)).map(|m| {
                 (

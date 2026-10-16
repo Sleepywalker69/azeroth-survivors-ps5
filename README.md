@@ -81,8 +81,14 @@ etaHEN or an equivalent, and ShadowMountPlus). Title ID `PPSA99320`. It is playe
 Bluetooth keyboard and mouse also work. To install, copy the title folder and a `Data` folder to
 `/data/homebrew/PPSA99320/`.
 
+A ready-made title folder is in [ps5/prebuilt/PPSA99320.zip](ps5/prebuilt/PPSA99320.zip). It
+renders at 4K by default and is distributed under GPL-3.0; see [ps5/LICENSING.md](ps5/LICENSING.md).
+It runs on [PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan) and
+[PS5_Mesa](https://github.com/mihawk-99/PS5_Mesa) by Mihawk, and the title layout follows
+[PS5_Ghostship](https://github.com/griches/PS5_Ghostship).
+
 **Untested on hardware so far.** See [ps5/README.md](ps5/README.md) for install steps, the pad
-controls, and the Linux/WSL build.
+controls, the Linux/WSL build and the full credits.
 
 ## The game data (not in this repo)
 

@@ -28,8 +28,9 @@ use raw_window_handle::{
 /// the game's logical-pixel layout reads the same on either.
 const LOGICAL_HEIGHT: f32 = 1080.0;
 
-/// The size used when start-up named none (a 1080p television, the console's common mode).
-const FALLBACK: (u32, u32) = (1920, 1080);
+/// The size used when start-up named none and the display could not be asked: the console's
+/// largest mode, the one the surface takes by default.
+const FALLBACK: (u32, u32) = (3840, 2160);
 
 /// `$PS5_DISPLAY_MODE` as `WIDTHxHEIGHT`.
 fn requested_mode() -> Option<(u32, u32)> {

@@ -1,7 +1,7 @@
 # Azeroth Survivors for the PlayStation 5
 
-The survivors mode of benilla as a home-screen title for a jailbroken PS5 (tested target:
-firmware 13.60). It is a real title in its own folder, not a payload: it shows on the home screen
+The survivors mode of benilla as a home-screen title for a jailbroken PS5 (target:
+firmware 13.60; not yet run on a console). It is a real title in its own folder, not a payload: it shows on the home screen
 with its own tile and background, starts like any game, and closes with the PS button.
 
 | | |
@@ -21,7 +21,9 @@ with its own tile and background, starts like any game, and closes with the PS b
 
 ## Install
 
-1. Build the title folder (see Build) or take `dist/PPSA99320/` from a build.
+1. Download [`ps5/prebuilt/PPSA99320.zip`](prebuilt/PPSA99320.zip) and unzip it. The zip holds
+   one folder, `PPSA99320`, which renders at 3840x2160 by default. You can also build the folder
+   yourself (see Build), which gives you `dist/PPSA99320/`.
 2. Copy the whole folder to the console as `/data/homebrew/PPSA99320/`:
 
    ```text
@@ -53,7 +55,7 @@ before it starts. Useful ones:
 
 | Line | Effect |
 | --- | --- |
-| `PS5_DISPLAY_MODE=3840x2160` | Render at this display mode instead of 1920x1080 |
+| `PS5_DISPLAY_MODE=1920x1080` | Render at this size instead of 3840x2160 (`2560x1440` also works); VideoOut scales it to the screen |
 | `WOW_DATA=/app0/OtherData` | Read the MPQs from elsewhere in the title folder |
 | `WOW_THREADS=1` | Run the frame's systems on one thread (a diagnostic) |
 
@@ -120,3 +122,31 @@ presenting through VideoOut.
   - `rust-compat.c`: the libc names std expects that the console exports under other names.
 - `ps5/tools/link-title.sh`: Ghostship's link. It links RADV, the CRT and the console's
   libraries, refuses null imports, signs `eboot.bin` and lays out the folder.
+
+## Credits
+
+The port stands on these projects. Their licences are listed in [LICENSING.md](LICENSING.md).
+
+- [Azeroth Survivors](https://wow.aethus.pl/) by Aethus: the game.
+- [OutThisLife/azeroth-survivors-re](https://github.com/OutThisLife/azeroth-survivors-re): the
+  local build this fork is based on. It runs on [benilla](https://github.com/samwhosung/benilla)
+  and [wenilla](https://github.com/Arnesen/wenilla).
+- [mihawk-99/PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan) and
+  [mihawk-99/PS5_Mesa](https://github.com/mihawk-99/PS5_Mesa) by Mihawk: Vulkan (RADV) on the
+  console, the title start-up, `libc.prx`, and the converter that writes `eboot.bin`.
+- [mihawk-99/PS5_PayloadSDK](https://github.com/mihawk-99/PS5_PayloadSDK), a fork of
+  [ps5-payload-dev/sdk](https://github.com/ps5-payload-dev/sdk): the toolchain, CRT and the
+  console's library stubs.
+- [griches/PS5_Ghostship](https://github.com/griches/PS5_Ghostship): the title layout, the
+  platform layer (pad, mouse, keyboard, sound) and the link this port follows.
+- [Bevy](https://bevy.org) and [wgpu](https://github.com/gfx-rs/wgpu): the engine and renderer.
+- [drakmor/ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus): registers the title on
+  the console.
+
+## Licence
+
+The source in this repository is MIT OR Apache-2.0, except
+`ps5/tools/png-to-title-dds.py`, which is GPL-3.0-or-later. A built title links GPL-3.0 code
+from PS5_Vulkan and the payload SDK, so `prebuilt/PPSA99320.zip` and any `eboot.bin` you build
+are distributed under GPL-3.0. [LICENSING.md](LICENSING.md) explains which parts come from
+where.

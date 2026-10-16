@@ -181,4 +181,5 @@ mkdir -p "$app/licenses"
 for licence in "$root"/LICENSE*; do
     [[ -f $licence ]] && cp "$licence" "$app/licenses/"
 done
-cp "$vulkan/LICENSE" "$app/licenses/PS5_Vulkan-LICENSE.txt"
+# The title as a whole is GPL-3.0 (ps5/LICENSING.md); Mesa's notices for the driver linked in
+cp "$ps5/LICENSING.md" "$ps5"/licenses/* "$app/licenses/"

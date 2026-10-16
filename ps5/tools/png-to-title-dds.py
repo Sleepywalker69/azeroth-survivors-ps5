@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# DevilutionX for the PlayStation 5 - a picture as home-screen art (sce_sys/pic0.dds, pic1.dds).
+# Azeroth Survivors for the PlayStation 5 - a picture as home-screen art (sce_sys/pic0.dds, pic1.dds).
 #
 #   python3 ps5/tools/png-to-title-dds.py PICTURE OUTPUT.dds
 #
