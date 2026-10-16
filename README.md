@@ -77,7 +77,7 @@ to pause, **1/2/3** to pick a level-up card.
 ## PlayStation 5
 
 The game also builds as a home-screen title for a jailbroken PS5 (target: firmware 13.60, with
-etaHEN and ShadowMountPlus). Title ID `PPSA99320`. It is played with a DualSense, and a USB or
+etaHEN or an equivalent, and ShadowMountPlus). Title ID `PPSA99320`. It is played with a DualSense, and a USB or
 Bluetooth keyboard and mouse also work. To install, copy the title folder and a `Data` folder to
 `/data/homebrew/PPSA99320/`.
 
