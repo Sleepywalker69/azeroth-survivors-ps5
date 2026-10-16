@@ -17,12 +17,14 @@ pub(crate) struct WakeHook(pub(crate) Option<imp::Wake>);
 
 pub(crate) use imp::{
     drain_queue, emit_event, emit_frame, hook_present, install_wake, read_config,
+    EventLoopProxyWrapper,
 };
 
 #[cfg(target_arch = "wasm32")]
 mod imp {
     use super::*;
-    use bevy::winit::{EventLoopProxyWrapper, WinitUserEvent};
+    pub(crate) use bevy::winit::EventLoopProxyWrapper;
+    use bevy::winit::WinitUserEvent;
     use js_sys::{Array, Function, Object, Reflect};
     use wasm_bindgen::closure::Closure;
     use wasm_bindgen::{JsCast, JsValue};
@@ -186,7 +188,14 @@ mod imp {
 #[cfg(not(target_arch = "wasm32"))]
 mod imp {
     use super::*;
-    use bevy::winit::EventLoopProxyWrapper;
+    #[cfg(not(target_env = "ps5"))]
+    pub(crate) use bevy::winit::EventLoopProxyWrapper;
+
+    /// The PlayStation 5 has no winit event loop to wake; a resource nothing inserts, so the
+    /// drain's `Option<Res<_>>` is always `None` there.
+    #[cfg(target_env = "ps5")]
+    #[derive(bevy::prelude::Resource)]
+    pub(crate) struct EventLoopProxyWrapper;
 
     /// Nothing to keep alive natively; the type exists so the resource's shape is one.
     pub(crate) struct Wake;

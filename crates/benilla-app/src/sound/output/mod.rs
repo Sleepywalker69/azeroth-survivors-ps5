@@ -32,8 +32,11 @@
 #[cfg(target_os = "macos")]
 #[path = "coreaudio.rs"]
 mod device;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_env = "ps5")))]
 #[path = "cpal.rs"]
+mod device;
+#[cfg(target_env = "ps5")]
+#[path = "ps5.rs"]
 mod device;
 
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, AtomicUsize, Ordering};

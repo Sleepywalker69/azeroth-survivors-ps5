@@ -310,7 +310,7 @@ fn drain_page_queue(
     mut out: ResMut<BridgeOutbox>,
     mut windows: Option<ResMut<ChatWindows>>,
     mut wake: NonSendMut<sink::WakeHook>,
-    proxy: Option<Res<bevy::winit::EventLoopProxyWrapper>>,
+    proxy: Option<Res<sink::EventLoopProxyWrapper>>,
 ) {
     let present = sink::hook_present();
     if !present {

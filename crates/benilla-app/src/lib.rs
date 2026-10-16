@@ -83,6 +83,8 @@ mod portrait;
 mod preflight;
 #[cfg(feature = "dev")]
 mod probe_shield;
+#[cfg(target_env = "ps5")]
+mod ps5;
 mod query_cache;
 mod quest_markers;
 mod raid_marks;
@@ -443,6 +445,9 @@ fn launch(build: BuildId, extend: Option<Extension<'_>>) -> AppExit {
     if survivors {
         app.add_plugins(survivors::SurvivorsPlugin);
     }
+    // The console's controllers stand in for winit's keyboard and mouse.
+    #[cfg(target_env = "ps5")]
+    app.add_plugins(ps5::Ps5InputPlugin);
 
     app.add_plugins(webbridge::WebBridgePlugin);
 

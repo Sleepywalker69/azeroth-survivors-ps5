@@ -1,0 +1,28 @@
+[package]
+name = "survivors-ps5"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Azeroth Survivors for the PlayStation 5: the survivors mode as a static library the title's C start-up calls (`ps5/src/main.c`), linked with RADV into eboot.bin by `ps5/tools/link-title.sh`"
+
+[lints]
+workspace = true
+
+[lib]
+# The title's link is the console's (the payload SDK's lld and PS5_Vulkan's recipe), not rustc's:
+# the game reaches it as one archive with std inside.
+crate-type = ["staticlib"]
+path = "src/lib.rs"
+test = false
+
+[dependencies]
+# No `dev`: the player build, as `scripts/gates.sh` builds it.
+benilla-app = { path = "../benilla-app", default-features = false }
+
+# blake3 (bevy_asset's hashes) in Rust only: its C and assembly kernels carry the same symbol names
+# as the copy inside RADV, which the title links whole.
+[target.'cfg(target_env = "ps5")'.dependencies]
+blake3 = { version = "1", features = ["pure"] }
+
+[build-dependencies]
+benilla-buildstamp = { path = "../benilla-buildstamp" }

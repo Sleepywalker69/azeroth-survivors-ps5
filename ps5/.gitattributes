@@ -1,0 +1,6 @@
+# The build runs these in Linux: keep them LF on a Windows checkout.
+*.sh text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.json text eol=lf

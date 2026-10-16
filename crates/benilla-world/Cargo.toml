@@ -34,6 +34,11 @@ bytemuck = { version = "1", features = ["derive"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 # macOS AppKit calls, at `benilla-app`'s pins so the graph has one objc2.
+[target.'cfg(target_env = "ps5")'.dependencies]
+raw-window-handle = "0.6"
+# The patched copy (`third_party/wgpu-hal`), for the display mode the window must match.
+wgpu-hal = { version = "27", features = ["vulkan"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.2", features = [
     # `bgwin`'s Accessory demotion and window ordering, and `modkeys`' modifier read.

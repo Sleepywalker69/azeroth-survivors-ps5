@@ -61,9 +61,6 @@ toml = "0.8"
 avian3d = "0.6"
 # Shapes and rasterizes `FontString` text standalone (`ui_text`), at bevy_text's own 0.16.
 cosmic-text = "0.16"
-# The layout's unshifted character per key (`KeyEventExtModifierSupplement`), which bevy's
-# `KeyboardInput` drops; bevy_winit's own 0.30, whose features it sets.
-winit = { version = "0.30", default-features = false }
 # `cosmic-text`'s font database, named by `ui_text`; must stay the version it depends on.
 fontdb = "0.23"
 # The mixer. Its `cpal` backend stays off on every target: `sound::output` is our own backend.
@@ -78,14 +75,30 @@ mint = "0.5"
 # The gossip greeting's weighted draw, re-rolled per open as in the reference.
 rand = "0.8"
 
+# Every target but the PlayStation 5 takes bevy's `default_platform` (winit, gilrs, the X11 and
+# Wayland backends); the console has its own window, input and runner (`src/ps5`).
+[target.'cfg(not(target_env = "ps5"))'.dependencies]
+bevy = { workspace = true, features = ["default_platform", "custom_cursor"] }
+# The layout's unshifted character per key (`KeyEventExtModifierSupplement`), which bevy's
+# `KeyboardInput` drops; bevy_winit's own 0.30, whose features it sets.
+winit = { version = "0.30", default-features = false }
+
+# The PlayStation 5: the window handle the patched wgpu-hal turns into a VK_KHR_display surface.
+[target.'cfg(target_env = "ps5")'.dependencies]
+raw-window-handle = "0.6"
+# The custom cursor's types without bevy's `custom_cursor`, which pulls winit in; the console
+# draws the cursor itself (`src/ps5/cursor.rs`).
+bevy_window = { version = "0.18.1", default-features = false, features = ["custom_cursor"] }
+
 # The EditBox clipboard, on the main thread as NSPasteboard requires; bevy_egui's 3.x. Native-only:
-# arboard has no wasm32 backend (`textinput/clipboard.rs` falls back to no pasteboard there).
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# arboard has no wasm32 backend (`textinput/clipboard.rs` falls back to no pasteboard there), nor
+# has the PlayStation 5.
+[target.'cfg(not(any(target_arch = "wasm32", target_env = "ps5")))'.dependencies]
 arboard = "3"
 
 # Wayland clipboard over the standard `wl_data_device`; arboard's speaks `wlr-data-control`,
 # which GNOME does not implement.
-[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "android"))))'.dependencies]
+[target.'cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_env = "ps5"))))'.dependencies]
 raw-window-handle = "0.6"
 smithay-clipboard = "0.7"
 
@@ -143,8 +156,9 @@ web-sys = { version = "0.3", features = [
 # Off macOS the device layer's last hop runs over cpal (`sound::output::cpal`). macOS goes direct:
 # there cpal cannot report or rebuild on a lost default device and drops the IO-cycle timestamp.
 # An unsupported target gets cpal's Null host, which reports no device.
-# wasm32 is excluded: see the browser note in the wasm32 section above.
-[target.'cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))'.dependencies]
+# wasm32 is excluded: see the browser note in the wasm32 section above. So is the PlayStation 5,
+# whose last hop is the console's own audio output (`sound::output::ps5`).
+[target.'cfg(all(not(target_os = "macos"), not(target_arch = "wasm32"), not(target_env = "ps5")))'.dependencies]
 cpal = "0.17"
 
 # Windows CPU clocks for `perf::clock`; `GetLocalTime` for the log stamp (`ui_chat::logging`); the

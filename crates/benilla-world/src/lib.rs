@@ -129,6 +129,8 @@ pub mod log_ring;
 
 /// macOS `Cmd+Q`, re-pointed at the window close so the shutdown systems run.
 pub mod mac_quit;
+#[cfg(target_env = "ps5")]
+pub mod ps5_display;
 pub mod map_proj;
 pub mod mat_anim_table;
 pub mod mesh_tag;

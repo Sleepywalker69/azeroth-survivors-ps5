@@ -20,7 +20,7 @@ pub fn tuned_default_plugins(mut primary_window: Window) -> PluginGroupBuilder {
         primary_window.fit_canvas_to_parent = true;
         primary_window.prevent_default_event_handling = true;
     }
-    DefaultPlugins
+    let group = DefaultPlugins
         .set(WindowPlugin {
             primary_window: Some(primary_window),
             ..default()
@@ -78,7 +78,14 @@ pub fn tuned_default_plugins(mut primary_window: Window) -> PluginGroupBuilder {
         // M2/WMO/ADT load through our own `mpq://` loaders; there is no glTF.
         .disable::<bevy::gltf::GltfPlugin>()
         // No bevy AA: no Fxaa/TAA/SMAA/CAS component anywhere (MSAA is core render, unaffected).
-        .disable::<bevy::anti_alias::AntiAliasPlugin>()
-        // No gamepad input; 1.12's bindings are keyboard/mouse.
-        .disable::<bevy::gilrs::GilrsPlugin>()
+        .disable::<bevy::anti_alias::AntiAliasPlugin>();
+    // No gamepad input through gilrs; 1.12's bindings are keyboard/mouse. The PlayStation 5 build
+    // has no gilrs (or winit) at all: its pad is read by `benilla-app/src/ps5`.
+    #[cfg(not(target_env = "ps5"))]
+    let group = group.disable::<bevy::gilrs::GilrsPlugin>();
+    // The console's screen and main loop stand in for winit's, on the primary window before
+    // `RenderPlugin` reads its handle.
+    #[cfg(target_env = "ps5")]
+    let group = group.add_after::<WindowPlugin>(crate::ps5_display::Ps5DisplayPlugin);
+    group
 }
