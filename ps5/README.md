@@ -6,10 +6,10 @@ with its own tile and background, starts like any game, and closes with the PS b
 
 | | |
 | --- | --- |
-| Title ID | `AZSV00001` |
-| Title folder | `/data/homebrew/AZSV00001/` (the title sees it as `/app0`) |
-| Game data | `/data/homebrew/AZSV00001/Data/` |
-| Settings, session, logs, crash reports | `/data/homebrew/AZSV00001/userdata/` |
+| Title ID | `PPSA99320` |
+| Title folder | `/data/homebrew/PPSA99320/` (the title sees it as `/app0`) |
+| Game data | `/data/homebrew/PPSA99320/Data/` |
+| Settings, session, logs, crash reports | `/data/homebrew/PPSA99320/userdata/` |
 | Log | klog, every line prefixed `[AzerothSurvivors]` |
 
 ## What the console needs
@@ -21,14 +21,14 @@ with its own tile and background, starts like any game, and closes with the PS b
 
 ## Install
 
-1. Build the title folder (see Build) or take `dist/AZSV00001/` from a build.
-2. Copy the whole folder to the console as `/data/homebrew/AZSV00001/`:
+1. Build the title folder (see Build) or take `dist/PPSA99320/` from a build.
+2. Copy the whole folder to the console as `/data/homebrew/PPSA99320/`:
 
    ```text
-   /data/homebrew/AZSV00001/eboot.bin
-   /data/homebrew/AZSV00001/sce_sys/          (param.json, icon0.png, pic0.dds, pic1.dds)
-   /data/homebrew/AZSV00001/sce_module/libc.prx
-   /data/homebrew/AZSV00001/licenses/
+   /data/homebrew/PPSA99320/eboot.bin
+   /data/homebrew/PPSA99320/sce_sys/          (param.json, icon0.png, pic0.dds, pic1.dds)
+   /data/homebrew/PPSA99320/sce_module/libc.prx
+   /data/homebrew/PPSA99320/licenses/
    ```
 
    Copy `sce_sys/icon0.png` with the first upload: ShadowMountPlus will not register a title
@@ -37,8 +37,8 @@ with its own tile and background, starts like any game, and closes with the PS b
    (`patch.MPQ`, `patch-2.MPQ`) works, as does a WoW 1.12.1 client's `Data` folder:
 
    ```text
-   /data/homebrew/AZSV00001/Data/patch.MPQ
-   /data/homebrew/AZSV00001/Data/patch-2.MPQ
+   /data/homebrew/PPSA99320/Data/patch.MPQ
+   /data/homebrew/PPSA99320/Data/patch-2.MPQ
    ```
 
 4. Wait a few seconds for "Azeroth Survivors" to appear on the home screen, and start it.
@@ -48,7 +48,7 @@ longer installed" means ShadowMountPlus has to be restarted before it will regis
 
 ### Options
 
-`/data/homebrew/AZSV00001/env.txt`, one `NAME=value` per line, sets the game's environment
+`/data/homebrew/PPSA99320/env.txt`, one `NAME=value` per line, sets the game's environment
 before it starts. Useful ones:
 
 | Line | Effect |
@@ -94,7 +94,7 @@ presenting through VideoOut.
    PS5_VULKAN=~/ps5/PS5_Vulkan PS5_PAYLOAD_SDK=<sdk> ps5/tools/build.sh
    ```
 
-   The title folder lands in `dist/AZSV00001/`. `PROFILE=ship` builds with fat LTO.
+   The title folder lands in `dist/PPSA99320/`. `PROFILE=ship` builds with fat LTO.
 
 ### How the port is put together
 

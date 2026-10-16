@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Azeroth Survivors for the PlayStation 5 - build the title folder.
 #
-#   ps5/tools/build.sh            ->  dist/AZSV00001/ (eboot.bin, sce_sys/, sce_module/)
+#   ps5/tools/build.sh            ->  dist/PPSA99320/ (eboot.bin, sce_sys/, sce_module/)
 #
 # 1. The game, Rust, as a static library for the console (crates/survivors-ps5): std built from
 #    source for x86_64-ps5-freebsd.json (FreeBSD 11's libc layout, no thread locals, abort on
