@@ -74,6 +74,16 @@ See [CONTROLS.md](CONTROLS.md). The short version: **WASD** to move, **Space** t
 for your class's movement spell, the **mouse wheel** to zoom, **C** to unlock the camera, **Esc**
 to pause, **1/2/3** to pick a level-up card.
 
+## PlayStation 5
+
+The game also builds as a home-screen title for a jailbroken PS5 (target: firmware 13.60, with
+etaHEN and ShadowMountPlus). Title ID `PPSA99320`. It is played with a DualSense, and a USB or
+Bluetooth keyboard and mouse also work. To install, copy the title folder and a `Data` folder to
+`/data/homebrew/PPSA99320/`.
+
+**Untested on hardware so far.** See [ps5/README.md](ps5/README.md) for install steps, the pad
+controls, and the Linux/WSL build.
+
 ## The game data (not in this repo)
 
 This repo ships **no Blizzard content** — no art, models, sounds, maps, MPQ contents, or
