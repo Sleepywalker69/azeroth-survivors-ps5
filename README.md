@@ -32,6 +32,10 @@ minutes. **No server, no login, no account** — fully offline and self-containe
   </tr>
 </table>
 
+> **New in this fork: a PlayStation 5 version.** It is a home-screen title for jailbroken
+> consoles. See [PlayStation 5](#playstation-5) for the download, install steps, controls and
+> credits.
+
 ### In this build
 
 - **A character-create pick screen** built from the client's own glue art: eight races, both
@@ -76,19 +80,93 @@ to pause, **1/2/3** to pick a level-up card.
 
 ## PlayStation 5
 
-The game also builds as a home-screen title for a jailbroken PS5 (target: firmware 13.60, with
-etaHEN or an equivalent, and ShadowMountPlus). Title ID `PPSA99320`. It is played with a DualSense, and a USB or
-Bluetooth keyboard and mouse also work. To install, copy the title folder and a `Data` folder to
-`/data/homebrew/PPSA99320/`.
+This fork adds a **home-screen title for a jailbroken PS5**. It is a real title with its own tile
+and background, not a payload, and it is played with a DualSense. A USB or Bluetooth keyboard and
+mouse also work.
 
-A ready-made title folder is in [ps5/prebuilt/PPSA99320.zip](ps5/prebuilt/PPSA99320.zip). It
-renders at 4K by default and is distributed under GPL-3.0; see [ps5/LICENSING.md](ps5/LICENSING.md).
-It runs on [PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan) and
-[PS5_Mesa](https://github.com/mihawk-99/PS5_Mesa) by Mihawk, and the title layout follows
-[PS5_Ghostship](https://github.com/griches/PS5_Ghostship).
+> **Untested on hardware so far.** The title builds and links, but nobody has run it on a console
+> yet. Reports are welcome in Issues.
 
-**Untested on hardware so far.** See [ps5/README.md](ps5/README.md) for install steps, the pad
-controls, the Linux/WSL build and the full credits.
+| | |
+| --- | --- |
+| Download | [`ps5/prebuilt/PPSA99320.zip`](ps5/prebuilt/PPSA99320.zip) (46 MB) |
+| Title ID | `PPSA99320` |
+| Target firmware | 13.60 |
+| Resolution | 3840x2160 by default; VideoOut scales it to your TV |
+
+### What the console needs
+
+- A jailbroken PS5 running a homebrew enabler, such as etaHEN or an equivalent. On 13.60 that is
+  kstuff-lite.
+- [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus), which shows the folders in
+  `/data/homebrew` as titles on the home screen.
+- An FTP server on the console to copy files with.
+
+### Install
+
+1. Download [`ps5/prebuilt/PPSA99320.zip`](ps5/prebuilt/PPSA99320.zip) and unzip it. It holds
+   one folder, `PPSA99320`.
+2. Copy that folder to the console as `/data/homebrew/PPSA99320/`. Include `sce_sys/icon0.png`
+   in the first upload, because ShadowMountPlus will not register a title without its icon.
+3. Copy the game's `Data` folder, holding the MPQs, to `/data/homebrew/PPSA99320/Data/`. You
+   supply this folder; the zip contains no game data. The Windows release's own `Data` folder
+   (`patch.MPQ`, `patch-2.MPQ`) works, and so does a WoW 1.12.1 client's.
+4. Wait a few seconds for **Azeroth Survivors** to appear on the home screen, then start it.
+
+If it does not appear, check `/data/shadowmount/debug.log`. Settings and logs are written to
+`/data/homebrew/PPSA99320/userdata/`.
+
+To change options, write `NAME=value` lines to `/data/homebrew/PPSA99320/env.txt`. For example,
+`PS5_DISPLAY_MODE=1920x1080` renders at 1080p instead of 4K (`2560x1440` also works).
+
+### Pad controls
+
+| Pad | Does |
+| --- | --- |
+| Left stick | Move |
+| Right stick | Move the cursor (aim, menus) |
+| Cross | Click; start a run |
+| Circle | Jump |
+| Square | Mobility skill |
+| D-pad left / up / right | Pick level-up card 1 / 2 / 3 |
+| R2 / L2 | Left / right mouse button |
+| R1 / L1 | Zoom in / out |
+| R3 | Lock or unlock the camera |
+| Options | Pause |
+
+### Building it yourself
+
+The title is built on Linux; WSL 2 works. The build needs a bootstrapped
+[PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan), the payload SDK and the pinned Rust
+toolchain. When those are set up, run `ps5/tools/build.sh` and the title lands in
+`dist/PPSA99320/`. [ps5/README.md](ps5/README.md) has the full steps and explains how the port
+works.
+
+### PS5 credits
+
+The PS5 port would not exist without these projects:
+
+- [mihawk-99/PS5_Vulkan](https://github.com/mihawk-99/PS5_Vulkan) and
+  [mihawk-99/PS5_Mesa](https://github.com/mihawk-99/PS5_Mesa) by **Mihawk** provide Vulkan
+  (RADV) on the console. They also supply the title start-up, `libc.prx`, and the tool that writes
+  `eboot.bin`.
+- [mihawk-99/PS5_PayloadSDK](https://github.com/mihawk-99/PS5_PayloadSDK), a fork of
+  [ps5-payload-dev/sdk](https://github.com/ps5-payload-dev/sdk), provides the toolchain, the C
+  runtime and the console's library stubs.
+- [griches/PS5_Ghostship](https://github.com/griches/PS5_Ghostship) provides the title layout,
+  the pad, mouse, keyboard and sound layer, and the link this port follows.
+- [drakmor/ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus) registers the title on
+  the console.
+- [Bevy](https://bevy.org) and [wgpu](https://github.com/gfx-rs/wgpu) are the engine and the
+  renderer. The port adds a PS5 path to wgpu-hal in `third_party/wgpu-hal`.
+
+### PS5 licence
+
+A built title links GPL-3.0 code from PS5_Vulkan and the payload SDK, so **the prebuilt zip, and
+any `eboot.bin` you build, is distributed under GPL-3.0**. The source in this repository keeps
+the MIT or Apache-2.0 licence described in [Legal](#legal). The one exception is
+`ps5/tools/png-to-title-dds.py`, which is GPL-3.0. [ps5/LICENSING.md](ps5/LICENSING.md) lists
+every upstream project, the revision the prebuilt title was built from, and its licence.
 
 ## The game data (not in this repo)
 
@@ -129,4 +207,5 @@ show World of Warcraft art rendered from a user-supplied client; that art is © 
 Entertainment. World of Warcraft is a trademark of Blizzard Entertainment, Inc. The engine code in
 this repository is licensed under
 [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option; the vendored components under
-`third_party/` keep their own upstream licenses.
+`third_party/` keep their own upstream licenses. The PS5 title as built is GPL-3.0; see
+[PS5 licence](#ps5-licence).
