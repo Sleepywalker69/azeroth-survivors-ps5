@@ -109,8 +109,11 @@ mouse also work.
 2. Copy that folder to the console as `/data/homebrew/PPSA99320/`. Include `sce_sys/icon0.png`
    in the first upload, because ShadowMountPlus will not register a title without its icon.
 3. Copy the game's `Data` folder, holding the MPQs, to `/data/homebrew/PPSA99320/Data/`. You
-   supply this folder; the zip contains no game data. The Windows release's own `Data` folder
-   (`patch.MPQ`, `patch-2.MPQ`) works, and so does a WoW 1.12.1 client's.
+   supply this folder; the zip contains no game data. It has to be a **full WoW 1.12.1 (build
+   5875) client's `Data` folder** (`terrain.MPQ`, `model.MPQ`, `texture.MPQ`, `patch.MPQ`, ...;
+   about 5 GB). `scripts/fetch-data.sh` downloads one. The Aethus Windows release's two-file
+   `Data` folder is **not** enough. Its `patch.MPQ` is trimmed to that build's own arenas, so
+   this build stops on the loading screen with it.
 4. Wait a few seconds for **Azeroth Survivors** to appear on the home screen, then start it.
 
 If it does not appear, check `/data/shadowmount/debug.log`. Settings and logs are written to

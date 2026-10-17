@@ -35,10 +35,17 @@ with its own tile and background, starts like any game, and closes with the PS b
 
    Copy `sce_sys/icon0.png` with the first upload: ShadowMountPlus will not register a title
    without its icon.
-3. Copy the game's `Data` folder beside `eboot.bin`. The Windows release's own `Data` folder
-   (`patch.MPQ`, `patch-2.MPQ`) works, as does a WoW 1.12.1 client's `Data` folder:
+3. Copy a full WoW 1.12.1 (build 5875) client's `Data` folder beside `eboot.bin`, about 5 GB.
+   `scripts/fetch-data.sh` downloads one into `wow-data/Data/`. The Aethus Windows release's
+   two-file `Data` folder is not enough: its `patch.MPQ` holds only that build's arenas, and
+   this build waits on the loading screen for terrain that is not there. The folder looks like
+   this:
 
    ```text
+   /data/homebrew/PPSA99320/Data/terrain.MPQ
+   /data/homebrew/PPSA99320/Data/model.MPQ
+   /data/homebrew/PPSA99320/Data/texture.MPQ
+   /data/homebrew/PPSA99320/Data/...           (the rest of the client's MPQs)
    /data/homebrew/PPSA99320/Data/patch.MPQ
    /data/homebrew/PPSA99320/Data/patch-2.MPQ
    ```

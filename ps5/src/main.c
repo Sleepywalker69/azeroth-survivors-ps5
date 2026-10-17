@@ -85,6 +85,10 @@ main(int argc, char **argv)
    setenv("BENILLA_HOME", "/app0/userdata", 0);
    setenv("HOME", "/app0/userdata", 0);
    setenv("TMPDIR", "/app0/userdata", 0);
+   /* Bevy roots its file assets beside the executable, which a title cannot ask for
+    * (kern.proc.pathname is refused): the title folder instead. The game's own files are
+    * compiled in or read from the MPQs. */
+   setenv("BEVY_ASSET_ROOT", "/app0", 0);
 
    struct stat data;
    if (stat(getenv("WOW_DATA"), &data) != 0)

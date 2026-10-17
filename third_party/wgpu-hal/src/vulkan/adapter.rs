@@ -1711,6 +1711,10 @@ impl super::Instance {
             if driver.conformance_version.major == 0 {
                 if driver.driver_id == vk::DriverId::MOLTENVK {
                     log::debug!("Adapter is not Vulkan compliant, but is MoltenVK, continuing");
+                } else if cfg!(target_env = "ps5") {
+                    // benilla carry: the PlayStation 5's RADV is the console's only GPU and has
+                    // not been through conformance; hiding it leaves the title nothing to draw on.
+                    log::info!("Adapter reports no conformance, using it on the PS5: {}", info.name);
                 } else if self
                     .shared
                     .flags

@@ -31,7 +31,11 @@ for file in "$PS5_VULKAN/tooling/prospero-clang18" "$PS5_PAYLOAD_SDK/bin/prosper
 done
 
 echo "==> the game (cargo $profile, x86_64-ps5-freebsd)"
-python3 "$ps5/tools/prepare-rust-std.py"
+target_dir=${CARGO_TARGET_DIR:-$root/target}
+# -Z build-std does not see edits to rust-src: when a patch lands, std is built again
+if python3 "$ps5/tools/prepare-rust-std.py" | tee /dev/stderr | grep -q '^patched'; then
+    rm -rf "$target_dir"/x86_64-ps5-freebsd/*/.fingerprint/std-*
+fi
 export RUSTC_BOOTSTRAP=1
 export RUST_LIBC_UNSTABLE_FREEBSD_VERSION=11
 export CC_x86_64_ps5_freebsd="$ps5/tools/cc.sh"
@@ -42,7 +46,6 @@ export AR_x86_64_ps5_freebsd=${AR_PS5:-$(command -v llvm-ar || command -v llvm-a
 export CFLAGS_x86_64_ps5_freebsd="-O2 -D_setjmp=setjmp -D_longjmp=longjmp"
 export CXXFLAGS_x86_64_ps5_freebsd="-O2"
 export RUSTFLAGS="--cfg libc_unstable_freebsd_version=\"11\" -C target-cpu=znver2 ${RUSTFLAGS_EXTRA:-}"
-target_dir=${CARGO_TARGET_DIR:-$root/target}
 cargo build --manifest-path "$root/Cargo.toml" -p survivors-ps5 --profile "$profile" \
     --target "$ps5/x86_64-ps5-freebsd.json" -Z json-target-spec \
     -Z build-std=std,panic_abort --target-dir "$target_dir"

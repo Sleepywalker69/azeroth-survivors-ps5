@@ -211,3 +211,21 @@ int posix_spawn_file_actions_addchdir_np(void *actions, const char *path)
    (void)path;
    return ENOSYS;
 }
+
+/* Standard output and error: the title may not dup2 (EPERM), so the platform layer moves the
+ * stdio stream stderr onto its klog pipe instead of descriptor 2 (ps5platform/klog.h). Rust's
+ * std writes descriptors 1 and 2 directly; the link wraps write() (--wrap=write) to send those
+ * through the stream, so the game's log reaches klog with the C side's. */
+#include <stdio.h>
+
+ssize_t __real_write(int fd, const void *buffer, size_t length);
+
+ssize_t __wrap_write(int fd, const void *buffer, size_t length)
+{
+   if (fd == STDOUT_FILENO || fd == STDERR_FILENO) {
+      const size_t written = fwrite(buffer, 1, length, stderr);
+      fflush(stderr);
+      return written ? (ssize_t)written : -1;
+   }
+   return __real_write(fd, buffer, length);
+}

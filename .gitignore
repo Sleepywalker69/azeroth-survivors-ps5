@@ -54,3 +54,5 @@ __pycache__/
 /tools/binaryen/
 /build/
 /dist/
+# An unzipped copy of the prebuilt title (and any Data placed in it) stays local
+/ps5/prebuilt/PPSA99320/

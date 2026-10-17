@@ -678,6 +678,13 @@ impl super::Instance {
             profiling::scope!("vkEnumerateInstanceLayerProperties");
             unsafe { entry.enumerate_instance_layer_properties() }
         };
+        // benilla carry: layers are the loader's, and the PlayStation 5 has none (RADV's ICD
+        // entry answers ERROR_LAYER_NOT_PRESENT): no layers, not no Vulkan.
+        #[cfg(target_env = "ps5")]
+        let instance_layers = instance_layers.or_else(|e| {
+            log::debug!("enumerate_instance_layer_properties: {e:?}; no layers");
+            Ok::<_, vk::Result>(Vec::new())
+        });
         let instance_layers = instance_layers.map_err(|e| {
             log::debug!("enumerate_instance_layer_properties: {e:?}");
             crate::InstanceError::with_source(
