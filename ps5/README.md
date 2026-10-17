@@ -1,7 +1,7 @@
 # Azeroth Survivors for the PlayStation 5
 
 The survivors mode of benilla as a home-screen title for a jailbroken PS5 (target:
-firmware 13.60; not yet run on a console). It is a real title in its own folder, not a payload: it shows on the home screen
+firmware 13.60; runs on a 13.60 console at 3840x2160 and 60 fps). It is a real title in its own folder, not a payload: it shows on the home screen
 with its own tile and background, starts like any game, and closes with the PS button.
 
 | | |

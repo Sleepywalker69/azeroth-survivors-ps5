@@ -31,8 +31,13 @@ pub(super) fn spawn(mut commands: Commands) {
 
 pub(super) fn follow(
     windows: Query<(&Window, Option<&CursorIcon>, Option<&CursorOptions>), With<PrimaryWindow>>,
+    ui_scale: Res<UiScale>,
     mut cursors: Query<(&mut Node, &mut ImageNode, &mut Visibility), With<SoftwareCursor>>,
 ) {
+    // `Val::Px` is multiplied by `UiScale` (survivors lays out on a 768-unit canvas), while the
+    // window's cursor position is in plain logical pixels: undo the scale so the image sits on the
+    // pointer that picking uses, and stays the vanilla size on screen.
+    let inv = if ui_scale.0 > 0.0 { 1.0 / ui_scale.0 } else { 1.0 };
     let Ok((window, icon, options)) = windows.single() else {
         return;
     };
@@ -53,9 +58,14 @@ pub(super) fn follow(
             continue;
         };
         // The vanilla cursors' hotspot is their top-left tip.
-        if node.left != Val::Px(at.x) || node.top != Val::Px(at.y) {
-            node.left = Val::Px(at.x);
-            node.top = Val::Px(at.y);
+        let (left, top, size) = (Val::Px(at.x * inv), Val::Px(at.y * inv), Val::Px(SIZE * inv));
+        if node.left != left || node.top != top {
+            node.left = left;
+            node.top = top;
+        }
+        if node.width != size {
+            node.width = size;
+            node.height = size;
         }
         if node_image.image != *image {
             node_image.image = image.clone();
