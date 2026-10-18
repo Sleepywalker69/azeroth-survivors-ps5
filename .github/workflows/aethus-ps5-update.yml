@@ -44,6 +44,7 @@ jobs:
         run: |
           python3 -I source/aethus-host/test/test_cloud_release.py
           python3 -I source/aethus-host/test/test_package_update.py
+          python3 -I source/aethus-host/test/test_build_wasm.py
       - name: Check the website and current channel
         id: check
         env:

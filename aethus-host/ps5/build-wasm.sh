@@ -50,9 +50,20 @@ compile() {
 }
 export -f compile
 
-# Largest first, so the long poles start early.
-sources=$(ls -S "$c_dir"/wenilla_*.c; printf '%s\n' "$rt_dir/wasm-rt-impl.c" "$rt_dir/wasm-rt-mem-impl.c" \
-    "$rt_dir/wasm-rt-exceptions-impl.c")
+# Largest first, so the long poles start early. A failed directory listing must
+# stop the build, rather than silently creating an archive of only the runtime.
+sources=$(python3 -I -c '
+from pathlib import Path
+import sys
+directory, runtime = map(Path, sys.argv[1:])
+units = [directory / f"wenilla_{i}.c" for i in range(128)]
+units.sort(key=lambda path: path.stat().st_size, reverse=True)
+units += [runtime / name for name in ("wasm-rt-impl.c", "wasm-rt-mem-impl.c", "wasm-rt-exceptions-impl.c")]
+for path in units:
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ValueError(f"missing or empty translation input: {path}")
+print("\n".join(map(str, units)))
+' "$c_dir" "$rt_dir")
 t0=$SECONDS
 printf '%s\n' "$sources" | xargs -P "$jobs" -I{} bash -c 'compile "$1"' _ {}
 objects=()

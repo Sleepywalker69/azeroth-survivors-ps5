@@ -26,7 +26,7 @@ https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/download/ps5-up
 ```
 
 This channel is live and publishes verified PS5 builds. The current release is
-[Aethus 0.97.2](https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/tag/ps5-0.97.2-20261018152922).
+[Aethus 0.98.0](https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/tag/ps5-0.98.0-20261018162554).
 Builds are started manually in GitHub Actions; there is no scheduled website check.
 See [CLOUD_BUILD.md](CLOUD_BUILD.md). Override the feed for another HTTPS host:
 
@@ -42,6 +42,12 @@ with the exact `manifest_sha256` stored in this local configuration. The manifes
 payload's size and SHA-256. Changing the LAN test feed requires updating its manifest pin.
 Production HTTPS checks certificate trust, hostname and validity dates. Redirects are bounded
 and restricted to the configured host; GitHub release-asset redirects are supported.
+
+Older hosts failed on GitHub's roughly 5.2 KB redirect headers with `0x80431073`
+(`TOO_LARGE_RESPONSE_HEADER`). The 0.98.0 host configures a bounded 64 KiB response-header
+limit and logs response status and redirect hops. TLS certificate checks remain enabled.
+An affected older host needs the manual 0.98.0 package once before it can fetch GitHub
+updates. Close the title before replacing files and preserve executable mode 0755.
 
 ## Preparing a release
 
