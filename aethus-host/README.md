@@ -12,9 +12,11 @@ This release was built locally in WSL. The earlier 0.97.2 GitHub build passed in
 **34 minutes 59 seconds**. Builds are manual only; no scheduled workflow is enabled.
 Existing base game data and `patch.MPQ` are still required.
 
-The console has updated from 0.96.0 to **0.97.0** and confirmed a successful first boot;
-the corrected GitHub-feed installation of 0.98.0 still awaits console confirmation.
-The current host measures approximately **47 FPS on the settled home screen** with
+The console downloaded **0.98.0 directly from GitHub**, installed it and confirmed a
+successful first boot. Download and verification took 57.828 seconds; backup, installation
+and verification took 7.280 seconds. Independent FTP readback verified every installed
+release file, executable mode 0755 and exactly one previous-version backup.
+The earlier 0.97.0 host measured approximately **47 FPS on the settled home screen** with
 detailed profiling off. The original timing build measured about 31 FPS. Stable memory
 growth substantially reduced loading stalls; zone transitions and gameplay performance
 still need work. See the measurements below for the limits of these comparisons.
@@ -124,8 +126,8 @@ The console updater has downloaded and installed 0.97.0 and confirmed its first 
 The initial copy dropped executable permissions; that launch failure was repaired, and
 the current host preserves those permissions. Thirteen transaction/configuration tests
 pass. On console, cleanup removes consumed staging and retains the previous backup.
-The larger-buffer installer completed a console update that the tester reported as quick;
-the exact duration was not retained across relaunch.
+The larger-buffer installer completed the 0.98.0 update in 7.280 seconds, including backup
+and verification. Runtime logs were retained across relaunch to measure that interval.
 See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed configuration, release
 preparation and recovery details. The default GitHub feed is live.
 [CLOUD_BUILD.md](ps5/CLOUD_BUILD.md) describes the verified GitHub publisher and how to
