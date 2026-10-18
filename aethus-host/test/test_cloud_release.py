@@ -28,6 +28,22 @@ def manifest(sequence=1):
 
 
 class CloudTests(unittest.TestCase):
+    def test_draft_release_lookup_uses_paginated_authenticated_list(self):
+        missing = cloud.GitHubFailure(cloud.subprocess.CompletedProcess([], 1, stderr="gh: Not Found (HTTP 404)"))
+        draft = {"id": 42, "tag_name": "ps5-test", "draft": True}
+        first = [{"id": n, "tag_name": f"other-{n}"} for n in range(100)]
+        with patch.object(cloud, "api", side_effect=[missing, first, [draft]]) as api:
+            self.assertEqual(cloud.release_by_tag("ps5-test"), draft)
+            self.assertEqual(api.call_args.args, ("releases?per_page=100&page=2",))
+        with patch.object(cloud, "api", side_effect=[missing, []]):
+            self.assertIsNone(cloud.release_by_tag("ps5-absent"))
+
+    def test_release_lookup_preserves_non_missing_api_errors(self):
+        denied = cloud.GitHubFailure(cloud.subprocess.CompletedProcess([], 1, stderr="gh: Forbidden (HTTP 403)"))
+        with patch.object(cloud, "api", side_effect=denied) as api:
+            with self.assertRaises(cloud.GitHubFailure): cloud.release_by_tag("ps5-test")
+            self.assertEqual(api.call_count, 1)
+
     def test_unchanged_upstream_and_source_skip_build(self):
         info = {"version": "0.97.0", "web_id": "123", "patches": {"patches": []}}
         prior = {"publisher": {"upstream_key": cloud.upstream_key(info), "source": "a" * 40}}

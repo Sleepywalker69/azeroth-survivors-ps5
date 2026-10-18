@@ -197,8 +197,16 @@ def release_by_tag(tag):
     try:
         return api("releases/tags/" + tag)
     except GitHubFailure as error:
-        if error.not_found: return None
-        raise
+        if not error.not_found: raise
+    # GitHub's tag endpoint returns only published releases. A newly created
+    # draft is visible through the authenticated release list instead.
+    page = 1
+    while True:
+        batch = api(f"releases?per_page=100&page={page}")
+        for release in batch:
+            if release["tag_name"] == tag: return release
+        if len(batch) < 100: return None
+        page += 1
 
 
 def verified_asset(asset, size, sha):
@@ -246,7 +254,8 @@ def publish(args):
                      "Built from the reviewed web-host interface. Saves and base game files are preserved.\n")
     if release is None:
         gh("release", "create", tag, "--repo", REPOSITORY, "--target", source, "--draft", "--title", f"Aethus PS5 {manifest['version']}", "--notes-file", notes)
-        release = api("releases/tags/" + tag)
+        release = release_by_tag(tag)
+        if release is None: raise ValueError("Created draft release is not visible: " + tag)
     existing = assets(release["id"])
     for name, path in new_assets.items():
         if name not in existing:
