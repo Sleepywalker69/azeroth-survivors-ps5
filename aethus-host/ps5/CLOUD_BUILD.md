@@ -77,15 +77,18 @@ changing the console channel. `force=true` rebuilds the same upstream version fo
 Build logs and plans are retained for 14 days; unpublished candidate artifacts for 3 days.
 GitHub release history is separate from the console's single-backup policy.
 
-Before first publication: complete the isolated Linux build, publish the pinned toolkit,
-merge the workflow PR, run an unpublished GitHub build, verify its candidate, then publish
-and test one console update. Future runs are started manually; the console can download
-published updates without the PC.
+The first full [GitHub build](https://github.com/Sleepywalker69/azeroth-survivors-ps5/actions/runs/39138087953)
+passed on 2026-10-18 in **34 minutes 59 seconds**, including toolkit verification, tests,
+translation, compilation and packaging. Its exact verified artifact is published as
+[Aethus 0.97.2](https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/tag/ps5-0.97.2-20261018152922),
+with all five upstream patches (patch-2 through patch-6). The production HTTPS channel is
+live. This is one measured full build, not a guarantee for future build times; unchanged
+checks skip compilation. Future runs are started manually. No scheduled workflow exists.
 
-As of 2026-10-18, the isolated Linux build from the extracted toolkit passes, including
-PS5 SELF validation. Its complete 0.97.0 feed contains all four upstream patches with
-verified sizes and hashes. This validates the toolkit and pipeline locally; a GitHub-hosted
-run and production channel activation are still pending.
+The release includes a normal `PPSA99320-Aethus-0.97.2.zip` for manual installation, its
+checksum and a verification receipt. Base game MPQs and `patch.MPQ` are not bundled.
+The console can download published updates without the PC. LAN installation and first-boot
+confirmation are proved; the first production GitHub update still awaits console confirmation.
 
 The workflow has one publisher at a time. Its GitHub token is exposed only to the publishing
 step, after compilation and verification. The checkout does not retain Git credentials.
