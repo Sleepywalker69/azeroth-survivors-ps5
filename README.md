@@ -11,6 +11,10 @@ from-scratch WoW 1.12.1 client engine (Rust + [Bevy](https://bevy.org)).**
 
 </div>
 
+**PS5 development:** the experimental [Aethus web-build host](aethus-host/README.md)
+now runs on PPSA99320. Its [performance notes](aethus-host/PERFORMANCE.md) describe
+the loading stalls and approximately 31 FPS home-screen baseline under investigation.
+
 > **Not an original project.** *Azeroth Survivors* is a free, fan-made WoW roguelike by
 > **Aethus** — play the original in the browser at **[wow.aethus.pl](https://wow.aethus.pl/)**
 > ([r/wowservers announcement](https://www.reddit.com/r/wowservers/comments/1x0yidl/azeroth_survivors_roguelike_wow_singleplayer_game/)
