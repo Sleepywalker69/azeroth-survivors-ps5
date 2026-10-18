@@ -3,10 +3,12 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 from urllib.request import Request
 
 HOST = Path(__file__).resolve().parents[1]
@@ -16,6 +18,34 @@ spec.loader.exec_module(updater)
 
 
 class UpdaterTests(unittest.TestCase):
+    def test_patch_plan_rejects_duplicates_and_combined_oversize(self):
+        entry = {"name": "patch-2.MPQ", "size": 4 * 1024**3, "sha256": "a" * 64,
+                 "parts": [{"url": "patch-2/part-000.bin", "size": 10}]}
+        updater.check_patch_manifest({"patches": [entry]})
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            updater.check_patch_manifest({"patches": [entry, entry]})
+        with self.assertRaisesRegex(ValueError, "Combined"):
+            updater.check_patch_manifest({"patches": [entry, dict(entry, name="patch-3.MPQ")]})
+
+    def test_explicit_native_converter_keeps_paths_as_arguments(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / "native wasm2c"
+            binary.write_bytes(b"fixture")
+            with patch.dict(os.environ, {"WASM2C": str(binary)}):
+                command = updater.wasm2c_command(root / "input with spaces.wasm", root / "output.c")
+            self.assertEqual(command[0], binary.resolve())
+            self.assertEqual(command[1], str(root / "input with spaces.wasm"))
+            self.assertEqual(command[-1], str(root / "output.c"))
+
+    @unittest.skipIf(os.name == "nt", "native Linux guard")
+    def test_linux_rejects_windows_converter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binary = Path(directory) / "wasm2c.exe"
+            binary.write_bytes(b"fixture")
+            with patch.dict(os.environ, {"WASM2C": str(binary)}), self.assertRaisesRegex(ValueError, "native wasm2c"):
+                updater.wasm2c_command(Path("input.wasm"), Path("output.c"))
+
     def test_relative_paths_reject_escape_and_command_separators(self):
         for name in ("../x", "/x", "x/../../y", "x\\y", "https://evil/x", "x\r\nDELE /", "%2e%2e/x", "x//y", "x?y", "x#y"):
             with self.subTest(name=name), self.assertRaises(ValueError):

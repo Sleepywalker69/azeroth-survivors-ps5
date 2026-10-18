@@ -1,0 +1,11 @@
+{
+  "format": 1,
+  "url": "https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/download/ps5-buildkit-20261018/aethus-cloud-kit-20261018-v2.tar.gz",
+  "size": 484304961,
+  "sha256": "ff5e3d51a4eb942ecf542842c8cd3bae16bc7f1ef44943483d300f6386a445e5",
+  "rust": "1.98.1",
+  "sdk": "611893fc25ef3e138f5bc2c90d829d8b58174cd2",
+  "vulkan": "f410e67a0241b3e8edcdbcd2a9b285dfc4a412ed",
+  "mesa": "1ba9874f478657ccf6da72ce55f0260164cc0bd0",
+  "wasm2c": "1.0.42"
+}

@@ -1,0 +1,113 @@
+name: Aethus PS5 update builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the verified candidate to the PS5 update channel
+        type: boolean
+        default: false
+      force:
+        description: Build even if the website and host source are unchanged
+        type: boolean
+        default: false
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aethus-ps5-publisher
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'Sleepywalker69/azeroth-survivors-ps5' && (github.event_name == 'workflow_dispatch' || vars.AETHUS_CLOUD_ENABLED == 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_TERM_COLOR: never
+    steps:
+      # The scheduler lives on the default branch; the maintained PS5 sources live here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ps5-port
+          path: source/azeroth-survivors-re
+          persist-credentials: false
+      - name: Prepare source layout
+        run: |
+          cp -a source/azeroth-survivors-re/aethus-host source/aethus-host
+          mkdir -p "$RUNNER_TEMP/aethus/evidence"
+      - name: Publisher and package tests
+        run: |
+          python3 -I source/aethus-host/test/test_cloud_release.py
+          python3 -I source/aethus-host/test/test_package_update.py
+      - name: Check the website and current channel
+        id: check
+        env:
+          FORCE_BUILD: ${{ inputs.force }}
+        run: |
+          source_revision=$(git -C source/azeroth-survivors-re log -1 --format=%H -- aethus-host ps5 crates/benilla-mpq third_party/wgpu-hal rust-toolchain.toml)
+          options=()
+          if [[ $FORCE_BUILD == true ]]; then options+=(--force); fi
+          python3 -I source/aethus-host/tools/cloud_release.py check \
+            --source "$source_revision" --plan "$RUNNER_TEMP/aethus/plan.json" "${options[@]}"
+      - name: Prepare LLVM 18
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          if ! command -v llvm-config-18 >/dev/null || ! command -v clang-18 >/dev/null || ! command -v ld.lld-18 >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq clang-18 llvm-18 lld-18 libclang-rt-18-dev
+          fi
+      - name: Download and verify the pinned toolchain kit
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          python3 -I source/aethus-host/tools/buildkit.py fetch \
+            --config source/aethus-host/tools/cloud-kit.json \
+            --archive "$RUNNER_TEMP/aethus/buildkit.tar.gz" --output "$RUNNER_TEMP/aethus/kit"
+          python3 -I -c 'import json,os; p=json.load(open("source/aethus-host/tools/cloud-kit.json")); open(os.environ["GITHUB_ENV"],"a").write("AETHUS_BUILD_KIT_SHA256="+p["sha256"]+"\n")'
+      - name: Transaction and recovery tests
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          CARGO_HOME="$RUNNER_TEMP/aethus/kit/cargo" \
+          RUSTC="$RUNNER_TEMP/aethus/kit/rust/bin/rustc" \
+          RUSTDOC="$RUNNER_TEMP/aethus/kit/rust/bin/rustdoc" \
+          "$RUNNER_TEMP/aethus/kit/rust/bin/cargo" test --offline \
+            --manifest-path source/aethus-host/test/updater/Cargo.toml \
+            --target-dir "$RUNNER_TEMP/aethus/test-target"
+      - name: Download compatible web inputs and build the PS5 title
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          bash source/aethus-host/tools/cloud-build.sh \
+            "$RUNNER_TEMP/aethus/kit" "$GITHUB_WORKSPACE/source/azeroth-survivors-re" "$RUNNER_TEMP/aethus/work" \
+            --plan "$RUNNER_TEMP/aethus/plan.json" --download --jobs 4 \
+            --evidence "$RUNNER_TEMP/aethus/evidence" --output "$RUNNER_TEMP/aethus/feed"
+      - name: Publish verified assets and promote the channel last
+        if: steps.check.outputs.changed == 'true' && (inputs.publish == true || (github.event_name == 'schedule' && vars.AETHUS_CLOUD_ENABLED == 'true'))
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -I source/aethus-host/tools/cloud_release.py publish \
+            --feed "$RUNNER_TEMP/aethus/feed" --evidence "$RUNNER_TEMP/aethus/evidence"
+      - name: Keep candidate for an unpublished test build
+        if: success() && steps.check.outputs.changed == 'true' && inputs.publish != true && github.event_name != 'schedule'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aethus-ps5-candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/aethus/feed
+          retention-days: 3
+          compression-level: 0
+      - name: Keep build and verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: aethus-ps5-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/aethus/evidence
+            ${{ runner.temp }}/aethus/plan.json
+          retention-days: 14
+          if-no-files-found: ignore

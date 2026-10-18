@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check, download, validate, build and deploy Aethus web releases from a Windows PC.
+"""Check, download, validate, build and deploy Aethus web releases on Windows or Linux.
 
 Default operation checks metadata only. --download explicitly authorizes the files in the
 printed plan. No Windows executable is fetched. Cargo always runs offline. Use Python -I.
@@ -93,6 +93,7 @@ def get_json(url):
 def upstream_info():
     latest = get_json(LATEST)
     patches = get_json(PATCHES)
+    check_patch_manifest(patches)
     if not VERSION.fullmatch(latest.get("version", "")):
         raise ValueError("Invalid upstream version")
     assets = []
@@ -190,6 +191,22 @@ def check_patch(entry):
             raise ValueError("Invalid patch part size")
 
 
+def check_patch_manifest(manifest):
+    entries = manifest.get("patches")
+    if not isinstance(entries, list) or len(entries) > 128:
+        raise ValueError("Invalid patch manifest count")
+    names, decoded, downloaded = set(), 0, 0
+    for entry in entries:
+        check_patch(entry)
+        if entry["name"] in names:
+            raise ValueError("Duplicate patch name")
+        names.add(entry["name"])
+        decoded += entry["size"]
+        downloaded += sum(part["size"] for part in entry["parts"])
+    if decoded > 6 * 1024**3 or downloaded > 6 * 1024**3:
+        raise ValueError("Combined patches exceed the 6 GiB download/install budget")
+
+
 def assemble_patch(parts, destination, entry):
     """Aethus multipart archives: concatenate, then decode gzip/zlib or plain MPQ."""
     with parts[0].open("rb") as first:
@@ -220,6 +237,7 @@ def assemble_patch(parts, destination, entry):
 
 
 def prepare_download(info, evidence, data_dirs):
+    check_patch_manifest(info["patches"])
     folder = REPOS / ("aethus-web-" + info["version"] + "-" + info["web_id"])
     if (folder / "download.json").exists():
         receipt = json.loads((folder / "download.json").read_text())
@@ -300,6 +318,22 @@ def wsl_path(path):
     return subprocess.check_output(["wsl.exe", "-e", "wslpath", "-u", str(path.resolve())], text=True).strip()
 
 
+def wasm2c_command(wasm, output):
+    override = os.environ.get("WASM2C")
+    if override:
+        compiler = Path(override).resolve(strict=True)
+    elif os.name == "nt":
+        compiler = REPOS / "tools/wabt/wabt-1.0.42/bin/wasm2c.exe"
+    else:
+        native = shutil.which("wasm2c")
+        compiler = Path(native) if native else REPOS / "tools/wabt/wabt-1.0.42/bin/wasm2c"
+    if not compiler.is_file():
+        raise ValueError("Native wasm2c is missing; set WASM2C to its executable path")
+    if os.name != "nt" and compiler.suffix.lower() == ".exe":
+        raise ValueError("Linux builds require native wasm2c, not a Windows executable")
+    return [compiler, str(wasm), "-n", "wenilla", "--num-outputs=128", "-o", str(output)]
+
+
 def build(web, evidence, jobs, cpu="generic"):
     wasm = web / "wenilla_bg.wasm"
     version = json.loads((web / "latest.json").read_text())["version"]
@@ -316,15 +350,10 @@ def build(web, evidence, jobs, cpu="generic"):
     generated = directory / "gen"
     generated.mkdir(exist_ok=True)
     marker = directory / "translation.json"
-    wasm2c = REPOS / "tools/wabt/wabt-1.0.42/bin/wasm2c.exe"
-    expected = {"wasm": sha256(wasm), "wasm2c": sha256(wasm2c), "outputs": 128}
+    command = wasm2c_command(wasm, translation / "wenilla.c")
+    expected = {"wasm": sha256(wasm), "wasm2c": sha256(command[0]), "outputs": 128}
     if not marker.exists() or json.loads(marker.read_text()) != expected:
-        header = translation / "wenilla.c"
-        source_arg, output_arg = str(wasm), str(header)
-        if os.name != "nt":
-            source_arg = subprocess.check_output(["wslpath", "-w", str(wasm)], text=True).strip()
-            output_arg = subprocess.check_output(["wslpath", "-w", str(header)], text=True).strip()
-        run([wasm2c, source_arg, "-n", "wenilla", "--num-outputs=128", "-o", output_arg], evidence / "wasm2c.log")
+        run(command, evidence / "wasm2c.log")
         if len(list(translation.glob("wenilla_*.c"))) != 128 or not (translation / "wenilla.h").is_file():
             raise ValueError("Incomplete wasm2c output")
         dump(marker, expected)
@@ -338,7 +367,8 @@ def build(web, evidence, jobs, cpu="generic"):
             "AETHUS_C_OPT_FLAGS=" + c_flags,
             "bash", wsl_path(HOST / "ps5/build.sh")]
     else:
-        work = str(Path.home() / "ps5/aethus-releases" / work_identity)
+        releases = Path(os.environ.get("AETHUS_RELEASES", str(Path.home() / "ps5/aethus-releases")))
+        work = str(releases / work_identity)
         command = ["env", "AETHUS_BUILD=" + str(directory), "AETHUS_WEB=" + str(web),
             "AETHUS_WORK=" + work, "JOBS=" + str(jobs), "AETHUS_C_OPT_FLAGS=" + c_flags,
             "bash", str(HOST / "ps5/build.sh")]

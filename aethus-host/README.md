@@ -5,10 +5,11 @@ wasm2c translates the game to C; QuickJS-ng runs its wasm-bindgen glue and the b
 API shims; the Rust host supplies graphics, sound, MPQ reads, storage and input.
 The PS5 package uses title ID **PPSA99320**.
 
-The 0.96.0 build boots on PS5 and reaches gameplay. Loading and frame rate are still
-under investigation. The first timing build measured roughly **31 FPS on the settled
-home screen**, with multi-second main-thread stalls during loading. This is a source
-checkpoint for inspection, not a claim that the port is finished.
+The console has updated from 0.96.0 to **0.97.0** and confirmed a successful first boot.
+The current host measures approximately **47 FPS on the settled home screen** with
+detailed profiling off. The original timing build measured about 31 FPS. Stable memory
+growth substantially reduced loading stalls; zone transitions and gameplay performance
+still need work. See the measurements below for the limits of these comparisons.
 
 ## Source layout
 
@@ -111,13 +112,15 @@ The PC updater's 0.97.0 download, compatibility checks and generic CPU build pas
 its direct FTP deployment proof is pending at this checkpoint. The user requested
 that the next game upgrade run through the console auto-updater instead.
 
-The console updater is implemented and PS5-built, with native HTTPS, background
-downloads, verified staging, installation, backups and startup rollback. Its ten
-transaction/configuration tests and two feed-packaging tests pass. Native HTTPS checks
-and the retry chord have run on the console; download/install validation is pending.
+The console updater has downloaded and installed 0.97.0 and confirmed its first boot.
+The initial copy dropped executable permissions; that launch failure was repaired, and
+the current host preserves those permissions. Thirteen transaction/configuration tests
+pass. On console, cleanup removes consumed staging and retains the previous backup.
+The larger copy buffer is built and installed; its speed needs the next update test.
 See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed configuration, release
 preparation and recovery details. The default GitHub feed
-URL has not been published.
+URL has not been published. [CLOUD_BUILD.md](ps5/CLOUD_BUILD.md) describes the prepared
+GitHub publisher and its activation requirements.
 
 Existing source notices remain in place. Third-party license texts needed by the
 PS5 package are in `ps5/licenses/`.

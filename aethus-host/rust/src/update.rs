@@ -211,21 +211,29 @@ fn write_json(path: &Path, value: &Value) -> Result<()> {
     atomic_write(path, |f| io(f.write_all(&bytes)))
 }
 fn copy_atomic(from: &Path, to: &Path) -> Result<()> {
+    copy_atomic_reporting(from, to, |_, _| ())
+}
+fn copy_atomic_reporting(from: &Path, to: &Path, mut progress: impl FnMut(u64, u64)) -> Result<()> {
     let mut source = io(File::open(from))?;
+    let total = io(source.metadata())?.len();
+    progress(0, total);
     atomic_write(to, |out| {
         // The title mount makes small writes very expensive. Match the HTTP transport's
         // large transfers instead of std::io::copy's small generic fallback buffer.
         let mut buffer = vec![0u8; 1024 * 1024];
+        let mut copied = 0;
         loop {
             let n = io(source.read(&mut buffer))?;
             if n == 0 { break; }
             io(out.write_all(&buffer[..n]))?;
+            copied += n as u64;
+            progress(copied, total);
         }
         #[cfg(unix)] {
             use std::os::unix::fs::PermissionsExt;
             let mut permissions = io(source.metadata())?.permissions();
             if to.file_name().is_some_and(|name| name == "eboot.bin") {
-                permissions.set_mode(permissions.mode() | 0o111);
+                permissions.set_mode(0o755);
             }
             io(out.set_permissions(permissions))?;
         }
@@ -319,14 +327,14 @@ impl Updater {
     }
     /// Called only after the host has stopped calling game code and flushed storage.
     pub fn install(&self, m: &Manifest) -> Result<()> { self.install_with(m, |_| Ok(())) }
-    pub fn install_reporting(&self, m: &Manifest, progress: impl FnMut(&str, &str)) -> Result<()> {
+    pub fn install_reporting(&self, m: &Manifest, progress: impl FnMut(&str, &str, u64, u64)) -> Result<()> {
         self.install_steps(m, |_| Ok(()), progress)
     }
     fn install_with(&self, m: &Manifest, mut checkpoint: impl FnMut(usize) -> Result<()>) -> Result<()> {
-        self.install_steps(m, &mut checkpoint, |_, _| ())
+        self.install_steps(m, &mut checkpoint, |_, _, _, _| ())
     }
     fn install_steps(&self, m: &Manifest, mut checkpoint: impl FnMut(usize) -> Result<()>,
-                     mut progress: impl FnMut(&str, &str)) -> Result<()> {
+                     mut progress: impl FnMut(&str, &str, u64, u64)) -> Result<()> {
         if self.state.join("transaction.json").exists() { return Err("an update transaction already needs recovery".into()); }
         let changed = self.preflight(m)?;
         let transaction = format!("{}-{}", m.sequence, nonce());
@@ -334,12 +342,11 @@ impl Updater {
         ensure_dir(&backup)?;
         let mut old = Vec::new();
         for a in &changed {
-            progress("backup", &a.path);
             let live = checked_join(&self.root, &a.path)?;
             let saved = checked_join(&backup, &a.path)?;
             let original = if live.exists() {
                 let (size, hash) = hash_file(&live)?;
-                copy_atomic(&live, &saved)?;
+                copy_atomic_reporting(&live, &saved, |copied, total| progress("backup", &a.path, copied, total))?;
                 if hash_file(&saved)? != (size, hash.clone()) { return Err("backup verification failed".into()); }
                 json!({"size": size, "sha256": hash})
             } else { Value::Null };
@@ -351,8 +358,8 @@ impl Updater {
         write_json(&self.state.join("transaction.json"), &journal)?;
         checkpoint(0)?;
         for (i, a) in changed.iter().enumerate() {
-            progress("replace", &a.path);
-            copy_atomic(&checked_join(&self.stage_dir(m)?, &a.path)?, &checked_join(&self.root, &a.path)?)?;
+            copy_atomic_reporting(&checked_join(&self.stage_dir(m)?, &a.path)?, &checked_join(&self.root, &a.path)?,
+                |copied, total| progress("replace", &a.path, copied, total))?;
             if !matches(&self.root.join(&a.path), a) { return Err(format!("installed verification failed: {}", a.path)); }
             checkpoint(i + 1)?;
         }

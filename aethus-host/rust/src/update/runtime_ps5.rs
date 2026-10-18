@@ -3,6 +3,7 @@ use super::{read_optional_json, Manifest, Policy, Recovery, Result, Updater};
 use crate::log::{say, warn};
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
+use std::time::{Duration, Instant};
 
 const FEED: &str = "https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/download/ps5-update/update.json";
 extern "C" { fn sceKernelSendNotificationRequest(device: i32, data: *const u8, size: usize, flags: i32) -> i32; }
@@ -134,11 +135,17 @@ impl Service {
     pub fn install_and_close(&mut self) -> Result<()> {
         let m = self.ready.take().ok_or("no verified update is ready")?;
         notify(&format!("Installing Aethus {}. The game will close when finished.", m.version));
-        match self.updater.install_reporting(&m, |phase, path| {
-            say!("update: {phase} {path}");
-            if path == "eboot.bin" {
-                notify(if phase == "backup" { "Aethus: backing up the previous version." }
-                       else { "Aethus: installing the new version." });
+        let started = Instant::now();
+        let mut last_progress = Instant::now();
+        match self.updater.install_reporting(&m, |phase, path, copied, total| {
+            if copied == 0 || copied == total || last_progress.elapsed() >= Duration::from_secs(5) {
+                last_progress = Instant::now();
+                say!("update: {phase} {path}: {copied}/{total} bytes ({:.1}s since install)", started.elapsed().as_secs_f64());
+                if path == "eboot.bin" {
+                    let percent = if total == 0 { 100 } else { copied * 100 / total };
+                    let action = if phase == "backup" { "Backing up the previous version" } else { "Copying the new version" };
+                    notify(&format!("Aethus: {action} ({percent}%)."));
+                }
             }
         }) {
             Ok(()) => { notify("Aethus update installed. Please launch the game again."); Ok(()) }

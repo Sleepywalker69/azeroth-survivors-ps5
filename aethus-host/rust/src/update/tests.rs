@@ -74,11 +74,15 @@ fn large_copy_preserves_bytes_and_executable_mode() {
     let target = f.root.join("eboot.bin");
     let bytes: Vec<u8> = (0..2 * 1024 * 1024 + 37).map(|i| (i % 251) as u8).collect();
     fs::write(&source, &bytes).unwrap();
-    copy_atomic(&source, &target).unwrap();
+    let mut events = Vec::new();
+    copy_atomic_reporting(&source, &target, |copied, total| events.push((copied, total))).unwrap();
     assert_eq!(fs::read(&target).unwrap(), bytes);
+    assert_eq!(events.first(), Some(&(0, bytes.len() as u64)));
+    assert_eq!(events.last(), Some(&(bytes.len() as u64, bytes.len() as u64)));
+    assert!(events.windows(2).all(|w| w[0].0 < w[1].0 && w[0].1 == w[1].1));
     #[cfg(unix)] {
         use std::os::unix::fs::PermissionsExt;
-        assert_eq!(fs::metadata(&target).unwrap().permissions().mode() & 0o111, 0o111);
+        assert_eq!(fs::metadata(&target).unwrap().permissions().mode() & 0o777, 0o755);
     }
 }
 
