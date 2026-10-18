@@ -28,6 +28,17 @@ def manifest(sequence=1):
 
 
 class CloudTests(unittest.TestCase):
+    def test_release_creation_uses_returned_identity_without_lookup(self):
+        created = {"id": 42, "tag_name": "ps5-test", "draft": True}
+        with patch.object(cloud, "gh", return_value=json.dumps(created)) as gh:
+            with patch.object(cloud, "release_by_tag", side_effect=AssertionError('draft is not visible yet')):
+                self.assertEqual(cloud.create_release('ps5-test', 'a' * 40, 'Test', 'Verified build', True), created)
+            args = gh.call_args.args
+            self.assertIn('draft=true', args)
+            self.assertEqual(args[args.index('draft=true') - 1], '-F')
+            self.assertIn('make_latest=false', args)
+            self.assertEqual(args[args.index('make_latest=false') - 1], '-f')
+
     def test_draft_release_lookup_uses_paginated_authenticated_list(self):
         missing = cloud.GitHubFailure(cloud.subprocess.CompletedProcess([], 1, stderr="gh: Not Found (HTTP 404)"))
         draft = {"id": 42, "tag_name": "ps5-test", "draft": True}
