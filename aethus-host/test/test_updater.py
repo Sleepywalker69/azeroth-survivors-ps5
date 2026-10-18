@@ -49,6 +49,19 @@ class UpdaterTests(unittest.TestCase):
                 updater.check_glue(web, root)
             self.assertTrue((root / "unreviewed-glue.json").is_file())
 
+    def test_changed_string_helper_stops_before_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            web = root / "web"
+            web.mkdir()
+            source = HOST.parent / "aethus-web-0.96.0"
+            shutil.copytree(source / "snippets", web / "snippets")
+            text = (source / "wenilla.js").read_text(encoding="utf-8")
+            text = text.replace("if (realloc === undefined) {", "if (realloc === null) {", 1)
+            (web / "wenilla.js").write_text(text, encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unreviewed passStringToWasm0"):
+                updater.check_glue(web, root)
+
     def test_changed_snippet_stops_before_build(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

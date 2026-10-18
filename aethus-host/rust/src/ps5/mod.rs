@@ -70,6 +70,9 @@ fn run() -> Result<c_int, String> {
         warn!("host: {}: {e}", home.display());
     }
     crate::log::to_file(&home.join("aethus-host.log"));
+    let (mut updater, close) = crate::update::runtime_ps5::Service::open(
+        &env_path("AETHUS_INSTALL_ROOT", "/data/homebrew/PPSA99320"))?;
+    if close { return Ok(0); }
     let js = env_path("AETHUS_JS", "/app0/js");
     let web = env_path("AETHUS_WEB", "/app0/web");
     let data: Vec<PathBuf> = std::env::var("WOW_DATA")
@@ -157,13 +160,15 @@ fn run() -> Result<c_int, String> {
         let phase = perf::start();
         let mut wait = ffi::js_tick(now);
         perf::finish("phase.tick", phase);
-        if now >= next_frame {
+        let drew_frame = now >= next_frame;
+        if drew_frame {
             let phase = perf::start();
             ffi::js_frame(now);
             perf::finish("phase.frame", phase);
             perf::frame();
-            // Presenting waits for the display (FIFO), which paces the loop.
-            next_frame = (next_frame + INTERVAL).max(ffi::now_ms() + INTERVAL * 0.25) - 1.0;
+            // FIFO already paces presentation. If work exceeded the frame budget, poll
+            // input and start the next frame immediately instead of adding another delay.
+            next_frame = (next_frame + INTERVAL).max(ffi::now_ms());
             let phase = perf::start();
             wait = ffi::js_tick(ffi::now_ms());
             perf::finish("phase.tick", phase);
@@ -183,6 +188,14 @@ fn run() -> Result<c_int, String> {
         };
         perf::finish("phase.maintain", phase);
         perf::report();
+        let game_ready = ops::with(|h| h.stage == "ready").unwrap_or(false);
+        if updater.poll(game_ready, drew_frame, input.take_update_action()) {
+            // No more JS callbacks after this point. Preserve the browser storage before
+            // replacing any game files; the old executable stays mapped until title exit.
+            ops::with(|h| h.storage.flush(ffi::now_ms(), true));
+            updater.install_and_close()?;
+            return Ok(0);
+        }
         for request in requests {
             match request {
                 Request::Cursor(cursor) => {

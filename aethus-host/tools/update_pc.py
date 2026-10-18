@@ -170,6 +170,8 @@ def check_glue(web, evidence):
     if unknown:
         dump(evidence / "unreviewed-glue.json", {"unknown": unknown, "candidate": current})
         raise ValueError("Host review required for new/changed glue imports or snippets: " + ", ".join(unknown[:12]))
+    # Validate the exact helper before spending time translating/compiling the wasm.
+    load_tool("prepare_glue").optimize((web / "wenilla.js").read_text(encoding="utf-8"))
     print(f"Compatibility gate passed: {len(current['imports'])} known glue imports", flush=True)
 
 
@@ -298,13 +300,15 @@ def wsl_path(path):
     return subprocess.check_output(["wsl.exe", "-e", "wslpath", "-u", str(path.resolve())], text=True).strip()
 
 
-def build(web, evidence, jobs):
+def build(web, evidence, jobs, cpu="generic"):
     wasm = web / "wenilla_bg.wasm"
     version = json.loads((web / "latest.json").read_text())["version"]
     if not VERSION.fullmatch(version):
         raise ValueError("Invalid local version")
     check_glue(web, evidence)
     identity = version + "-" + sha256(wasm)[:12]
+    c_flags = {"generic": "-O2", "zen2": "-O3 -march=znver2 -ffp-contract=off"}[cpu]
+    work_identity = identity + ("-zen2" if cpu == "zen2" else "")
     directory = REPOS / "aethus-build" / identity
     directory.mkdir(parents=True, exist_ok=True)
     translation = directory / "wasm2c"
@@ -328,18 +332,23 @@ def build(web, evidence, jobs):
     run([sys.executable, "-I", HOST / "gen/gen_bridge.py", translation / "wenilla.h", bridge], evidence / "bridge.log")
     if os.name == "nt":
         home = subprocess.check_output(["wsl.exe", "-e", "printenv", "HOME"], text=True).strip()
-        work = home + "/ps5/aethus-releases/" + identity
+        work = home + "/ps5/aethus-releases/" + work_identity
         command = ["wsl.exe", "-e", "env", "AETHUS_BUILD=" + wsl_path(directory),
             "AETHUS_WEB=" + wsl_path(web), "AETHUS_WORK=" + work, "JOBS=" + str(jobs),
+            "AETHUS_C_OPT_FLAGS=" + c_flags,
             "bash", wsl_path(HOST / "ps5/build.sh")]
     else:
-        work = str(Path.home() / "ps5/aethus-releases" / identity)
+        work = str(Path.home() / "ps5/aethus-releases" / work_identity)
         command = ["env", "AETHUS_BUILD=" + str(directory), "AETHUS_WEB=" + str(web),
-            "AETHUS_WORK=" + work, "JOBS=" + str(jobs), "bash", str(HOST / "ps5/build.sh")]
+            "AETHUS_WORK=" + work, "JOBS=" + str(jobs), "AETHUS_C_OPT_FLAGS=" + c_flags,
+            "bash", str(HOST / "ps5/build.sh")]
     run(command, evidence / "ps5-build.log")
     app = work + "/dist/PPSA99320"
+    eboot_hash = (subprocess.check_output(["wsl.exe", "-e", "sha256sum", app + "/eboot.bin"], text=True).split()[0]
+                  if os.name == "nt" else sha256(Path(app) / "eboot.bin"))
     dump(evidence / "build.json", {"version": version, "identity": identity, "app_wsl": app,
-        "web": str(web), "wasm_sha256": expected["wasm"]})
+        "web": str(web), "wasm_sha256": expected["wasm"], "eboot_sha256": eboot_hash,
+        "cpu": cpu, "c_flags": c_flags})
     return app
 
 
@@ -355,12 +364,22 @@ def main():
     parser.add_argument("--host", default="192.168.0.86")
     parser.add_argument("--port", type=int, default=2121)
     parser.add_argument("--jobs", type=int, default=8)
+    parser.add_argument("--cpu", choices=("generic", "zen2"), default="generic",
+                        help="C optimization profile; separate object directories preserve the comparison build")
+    parser.add_argument("--feed-output", type=Path, help="Prepare a console auto-update feed after building; does not publish")
+    parser.add_argument("--feed-base-url", help="Directory URL at which the prepared feed will be served")
+    parser.add_argument("--sequence", type=int, help="Increasing console release sequence, including host-only updates")
     parser.add_argument("--evidence", type=Path)
     args = parser.parse_args()
     if args.web and (args.check or args.download):
         parser.error("--web is offline and cannot be combined with --check or --download")
     if args.deploy and (not args.build or not args.title_closed):
         parser.error("--deploy requires --build and --title-closed")
+    if any(v is not None for v in (args.feed_output, args.feed_base_url, args.sequence)):
+        if not args.build or not all(v is not None for v in (args.feed_output, args.feed_base_url, args.sequence)):
+            parser.error("feed preparation requires --build --feed-output --feed-base-url --sequence")
+        if args.sequence <= 0:
+            parser.error("--sequence must be positive")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     evidence = args.evidence or REPOS / "aethus-build/update-receipts" / stamp
     evidence.mkdir(parents=True, exist_ok=True)
@@ -381,7 +400,16 @@ def main():
     if (web / "Data").is_dir():
         data_dirs.append(web / "Data")
     if args.build:
-        app = build(web, evidence, args.jobs)
+        app = build(web, evidence, args.jobs, args.cpu)
+        if args.feed_output:
+            command = (["wsl.exe", "-e"] if os.name == "nt" else []) + ["python3", "-I",
+                wsl_path(HOST / "tools/package_update.py"), "--app", app,
+                "--output", wsl_path(args.feed_output), "--base-url", args.feed_base_url,
+                "--version", json.loads((web / "latest.json").read_text())["version"], "--sequence", str(args.sequence)]
+            for directory in data_dirs:
+                command += ["--data", wsl_path(directory)]
+            run(command, evidence / "feed.log")
+            dump(evidence / "feed.json", json.loads((evidence / "feed.log").read_text()))
         if args.deploy:
             command = (["wsl.exe", "-e"] if os.name == "nt" else []) + ["python3", "-I",
                 wsl_path(HOST / "tools/deploy_ps5.py"), "--app", app, "--host", args.host,

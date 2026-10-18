@@ -18,6 +18,8 @@
 #   AETHUS_WORK    objects and archives (default ~/ps5/aethus-ps5-build)
 #   AETHUS_DIST    where the title folder goes (default $AETHUS_WORK/dist)
 #   JOBS           parallel compiles of the translation (default 8)
+#   AETHUS_C_OPT_FLAGS  translated game and JS compiler options (default -O2); use a separate
+#                       AETHUS_WORK for comparison builds, e.g. -O3 -march=znver2 -ffp-contract=off
 set -euo pipefail
 # Non-login WSL launches (including the PC updater) need rustup's tools as well.
 export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
@@ -38,6 +40,10 @@ mkdir -p "$work/obj"
 cc() { sh "$re/ps5/tools/cc.sh" "$@"; }
 ar=$(command -v llvm-ar || command -v llvm-ar-18)
 wasm_defines=(-DWASM_RT_USE_MMAP=0 -DWASM_RT_MEMCHECK_BOUNDS_CHECK=1 -DWASM_RT_NONCONFORMING_UNCHECKED_STACK_EXHAUSTION=1)
+read -r -a c_opt_flags <<< "${AETHUS_C_OPT_FLAGS:--O2}"
+
+echo "==> reviewed native string helpers"
+python3 -I "$host/tools/prepare_glue.py" "$web/wenilla.js" "$work/wenilla-host.js"
 
 echo "==> the translation"
 bash "$ps5/build-wasm.sh" "$build/wasm2c" "$rt" "$work" "${JOBS:-8}"
@@ -48,9 +54,14 @@ for unit in "$quickjs/quickjs-amalgam.c:quickjs:-w" "$build/gen/bridge_gen.c:bri
         "$host/c/host.c:host:-Wall" "$host/c/wasi.c:wasi:-Wall"; do
     IFS=: read -r source name warnings <<<"$unit"
     object="$work/obj/$name.o"
-    if [[ ! $object -nt $source || $host/c/host.h -nt $object || $host/c/bridge.h -nt $object ]]; then
-        cc -std=gnu11 -O2 -fPIC "$warnings" -Wno-unused-parameter -D_setjmp=setjmp -D_longjmp=longjmp \
+    config=$( { printf '%s\n' "${c_opt_flags[*]}" "$build" "$rt" "$quickjs";
+        sha256sum "$ps5/build.sh" "$re/ps5/tools/cc.sh" "$PS5_VULKAN/tooling/prospero-clang18" \
+            "$host/c/host.h" "$host/c/bridge.h" "$quickjs"/*.h "$rt"/*.h "$build/wasm2c/wenilla.h";
+    } | sha256sum | cut -d' ' -f1)
+    if [[ ! $object -nt $source || ! -f $object.config || $(cat "$object.config") != "$config" ]]; then
+        cc -std=gnu11 "${c_opt_flags[@]}" -fPIC "$warnings" -Wno-unused-parameter -D_setjmp=setjmp -D_longjmp=longjmp \
             "${wasm_defines[@]}" -I"$host/c" -I"$build/wasm2c" -I"$rt" -I"$quickjs" -c "$source" -o "$object"
+        printf '%s\n' "$config" > "$object.config"
     fi
     js_objects+=("$object")
 done
@@ -98,6 +109,6 @@ echo "==> the page: $app/js, $app/web"
 rm -rf "$app/js" "$app/web"
 mkdir -p "$app/js" "$app/web"
 cp "$host"/js/*.js "$host"/js/*.mjs "$app/js/"
-cp "$web/wenilla.js" "$app/web/"
+cp "$work/wenilla-host.js" "$app/web/wenilla.js"
 [[ -d $web/snippets ]] && cp -r "$web/snippets" "$app/web/"
 echo "==> $app (copy Data/ beside eboot.bin: patch.MPQ, patch-2.MPQ ... patch-5.MPQ)"

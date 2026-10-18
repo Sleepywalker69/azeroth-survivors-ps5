@@ -56,8 +56,11 @@ bash aethus-host/ps5/build.sh
 `AETHUS_BUILD`, `AETHUS_WEB`, `AETHUS_WORK`, `PS5_VULKAN` and `PS5_PAYLOAD_SDK`
 override the paths documented at the top of `ps5/build.sh`. The default package
 is `~/ps5/aethus-ps5-build/dist/PPSA99320`. Translation compilation resumes by
-skipping objects newer than their source files. Changed compiler options require
-a separate work directory or explicit rebuilding of affected objects.
+skipping unchanged objects only when compiler flags, shared headers and wrapper
+fingerprints also match. Use a separate `AETHUS_WORK` for comparison builds.
+`AETHUS_C_OPT_FLAGS="-O3 -march=znver2 -ffp-contract=off"` selects the current CPU
+optimization candidate. PS5 packaging also applies exact, reviewed string-helper
+rewrites for native UTF-8 operations; unfamiliar helpers stop the build for review.
 
 The Windows host uses `tools/build_wasm_lib.py` and `tools/build_host_lib.py` to
 produce its C libraries; their argument documentation is in the scripts. Then,
@@ -77,13 +80,16 @@ Add `AETHUS_PROFILE=1` to the title's `env.txt`. The host writes five-second tim
 windows to `userdata/aethus-host.log`: phase/host-operation totals, exclusive wasm
 and JavaScript import time, memory usage, and linear-memory growth/copy costs.
 Phase and operation totals overlap; bridge lane timings are exclusive. Profiling
-adds overhead and is disabled by default.
+adds overhead and is disabled by default. `AETHUS_FPS=1` with detailed profiling
+disabled logs only frame cadence, avoiding per-import/operation timing overhead.
 
 R3 toggles the right stick between pointer and camera mode. Camera mode holds the
 right mouse button, centers and hides the pointer, and sends relative movement.
 Options returns to pointer mode. Cross/R2 click, L2 holds the right mouse button,
 left stick moves, and L1/R1 scroll. R3 transition tests passed on Windows; the
-camera interaction is still awaiting console confirmation at this checkpoint.
+camera interaction is still awaiting console confirmation at this checkpoint. The
+latest source fixes repeated toggles while R3 is held. Hold L3 + Options for two
+seconds to check for an update or install a staged update and close.
 
 See [PERFORMANCE.md](PERFORMANCE.md) for the measured baseline and open questions.
 
@@ -93,6 +99,7 @@ See [PERFORMANCE.md](PERFORMANCE.md) for the measured baseline and open question
 the web build and any missing patches, checks imports/snippets against the reviewed
 host compatibility policy, generates wasm2c/bridge output and builds offline in WSL.
 Use `--web <existing-folder> --build` to rebuild an existing candidate offline.
+Add `--cpu zen2` to select the CPU optimization candidate in a separate build cache.
 Unknown executable glue changes stop for review; there is no silent fallback.
 
 `--deploy` additionally requires `--build --title-closed`. The separate
@@ -100,10 +107,16 @@ Unknown executable glue changes stop for review; there is no silent fallback.
 SHA-256 readback, and retains replaced files in a timestamped remote backup.
 It does not close a running game. Do not use `--title-closed` while the title runs.
 
-The PC updater's 0.97.0 download and compatibility checks passed; its full build
-and deployment proof is pending at this checkpoint. Console auto-update is not yet
-implemented. Because the translated wasm is linked into `eboot.bin`, console
-updates will need prebuilt PS5 artifacts, not just replacement JavaScript.
+The PC updater's 0.97.0 download, compatibility checks and generic CPU build passed;
+its direct FTP deployment proof is pending at this checkpoint. The user requested
+that the next game upgrade run through the console auto-updater instead.
+
+The console updater is implemented and PS5-built, with native HTTPS, background
+downloads, verified staging, installation, backups and startup rollback. Its nine
+transaction tests and two feed-packaging tests pass; console networking/install
+validation is pending. See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed
+configuration, release preparation and recovery details. The default GitHub feed
+URL has not been published.
 
 Existing source notices remain in place. Third-party license texts needed by the
 PS5 package are in `ps5/licenses/`.

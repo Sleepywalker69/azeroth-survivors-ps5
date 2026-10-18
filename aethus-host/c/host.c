@@ -686,6 +686,25 @@ static JSValue native_text_decode(JSContext *ctx, JSValueConst this_val, int arg
    return JS_NewStringLen(ctx, (const char *)data, len);
 }
 
+/* Reviewed wasm-bindgen getStringFromWasm0 path. Avoid creating a typed-array view and
+ * crossing several interpreted helpers for every small string. Read the current memory
+ * pointer each time (the Windows allocator and PS5 fallback may move on growth). */
+static JSValue native_text_decode_wasm(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
+{
+   (void)this_val;
+   uint32_t ptr, len;
+   if (argc < 2)
+      return JS_ThrowTypeError(ctx, "textDecodeWasm requires a pointer and length");
+   if (JS_ToUint32(ctx, &ptr, argv[0]) || JS_ToUint32(ctx, &len, argv[1]))
+      return JS_EXCEPTION;
+   if (!g_instantiated)
+      return JS_ThrowTypeError(ctx, "wasm memory is not instantiated");
+   wasm_rt_memory_t *memory = bridge_memory();
+   if ((uint64_t)ptr + len > memory->size)
+      return JS_ThrowRangeError(ctx, "string is outside wasm memory");
+   return JS_NewStringLen(ctx, len ? (const char *)memory->data + ptr : "", len);
+}
+
 /* A latin-1 decode (TextDecoder('latin1'), really windows-1252 for 0x80..0x9F, which callers
  * here never meet). */
 static JSValue native_latin1_decode(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv)
@@ -906,6 +925,7 @@ static const JSCFunctionListEntry native_functions[] = {
    JS_CFUNC_DEF("textEncode", 1, native_text_encode),
    JS_CFUNC_DEF("textEncodeInto", 2, native_text_encode_into),
    JS_CFUNC_DEF("textDecode", 1, native_text_decode),
+   JS_CFUNC_DEF("textDecodeWasm", 2, native_text_decode_wasm),
    JS_CFUNC_DEF("latin1Decode", 1, native_latin1_decode),
    JS_CFUNC_DEF("xUserDefined", 1, native_x_user_defined),
    JS_CFUNC_DEF("randomFill", 1, native_random_fill),

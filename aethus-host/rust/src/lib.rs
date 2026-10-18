@@ -12,6 +12,8 @@ mod gpu;
 mod log;
 mod ops;
 mod storage;
+#[cfg(any(target_env = "ps5", test))]
+mod update;
 
 #[cfg(windows)]
 pub mod desktop;

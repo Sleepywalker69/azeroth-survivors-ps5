@@ -1,6 +1,7 @@
 build/
 dist/
 rust/target/
+test/updater/target/
 __pycache__/
 *.pyc
 *.log

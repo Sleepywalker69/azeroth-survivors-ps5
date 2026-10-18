@@ -15,6 +15,7 @@
 //! | R2, L2 | left, right button |
 //! | R1, L1 | the wheel, a notch up or down a press |
 //! | R3 | toggle right stick between pointer and camera (latched right mouse button) |
+//! | L3 + Options (hold 2 seconds) | check for updates, or install a staged update and close |
 //!
 //! Keys are their USB HID usage throughout (the keyboard's own numbering; the modifier keys are
 //! 0xe0..=0xe7), so the pad and the keyboard holding the same key press it once.
@@ -22,6 +23,7 @@
 use serde_json::{json, Value};
 
 const PAD_R3: u32 = 0x000004;
+const PAD_L3: u32 = 0x000002;
 const PAD_OPTIONS: u32 = 0x000008;
 const PAD_UP: u32 = 0x000010;
 const PAD_RIGHT: u32 = 0x000020;
@@ -188,6 +190,10 @@ pub struct Input {
     last_poll: Option<f64>,
     camera_mode: bool,
     pointer_stash: Option<(f64, f64)>,
+    previous_pad: u32,
+    update_hold: Option<f64>,
+    update_latched: bool,
+    update_action: bool,
 }
 
 impl Input {
@@ -212,6 +218,10 @@ impl Input {
             last_poll: None,
             camera_mode: false,
             pointer_stash: None,
+            previous_pad: 0,
+            update_hold: None,
+            update_latched: false,
+            update_action: false,
         }
     }
 
@@ -221,6 +231,8 @@ impl Input {
     }
 
     pub fn camera_mode(&self) -> bool { self.camera_mode }
+
+    pub fn take_update_action(&mut self) -> bool { std::mem::take(&mut self.update_action) }
 
     /// The DOM's modifier bits: shift 1, ctrl 2, alt 4, meta 8.
     fn m(&self) -> u32 {
@@ -261,8 +273,23 @@ impl Input {
         let dt = self.last_poll.map_or(0.0, |last| ((now - last) / 1000.0).clamp(0.0, 0.1));
         self.last_poll = Some(now);
 
-        let toggle = pad.pressed & PAD_R3 != 0;
-        let escape = pad.pressed & PAD_OPTIONS != 0;
+        // platform.c calculates `pressed` from the previous contents of its output struct.
+        // This host uses a fresh Pad for each poll, so derive edges from retained held bits.
+        let pressed = pad.held & !self.previous_pad;
+        self.previous_pad = pad.held;
+        let update_combo = pad.held & (PAD_L3 | PAD_OPTIONS) == (PAD_L3 | PAD_OPTIONS);
+        if update_combo {
+            let began = *self.update_hold.get_or_insert(now);
+            if !self.update_latched && now - began >= 2000.0 {
+                self.update_action = true;
+                self.update_latched = true;
+            }
+        } else {
+            self.update_hold = None;
+            self.update_latched = false;
+        }
+        let toggle = pressed & PAD_R3 != 0;
+        let escape = !update_combo && pressed & PAD_OPTIONS != 0;
         if toggle || (escape && self.camera_mode) {
             self.camera_mode = !escape && !self.camera_mode;
             if self.camera_mode {
@@ -335,7 +362,7 @@ impl Input {
             (held(PAD_UP), DIGIT_2),
             (held(PAD_RIGHT), DIGIT_3),
             (held(PAD_DOWN), ENTER),
-            (held(PAD_OPTIONS), ESCAPE),
+            (held(PAD_OPTIONS) && !update_combo, ESCAPE),
         ] {
             if on {
                 pad_keys.push(usage);
@@ -407,10 +434,10 @@ impl Input {
 
         // The wheel, in lines: the DOM's deltas point down, so a notch up (R1) is -1.
         let mut notches = if mouse_live { mouse.wheel } else { 0 };
-        if pad.pressed & PAD_R1 != 0 {
+        if pressed & PAD_R1 != 0 {
             notches += 1;
         }
-        if pad.pressed & PAD_L1 != 0 {
+        if pressed & PAD_L1 != 0 {
             notches -= 1;
         }
         if notches != 0 {
@@ -436,7 +463,7 @@ mod tests {
         assert!(input.camera_mode());
         assert!(events.iter().any(|e| e["t"] == "down" && e["b"] == 2));
         assert!(!events.iter().any(|e| e["code"] == "KeyC"));
-        let events = step(&mut input, 16.0, Pad { held: PAD_R3, right_x: 1.0, ..Default::default() });
+        let events = step(&mut input, 16.0, Pad { held: PAD_R3, pressed: PAD_R3, right_x: 1.0, ..Default::default() });
         assert!(input.camera_mode()); // holding R3 does not repeatedly toggle
         assert_eq!(input.cursor(), (960.0, 540.0));
         assert!(events.iter().any(|e| e["t"] == "move" && e["dx"].as_f64().unwrap_or(0.0) > 0.0));
@@ -450,11 +477,28 @@ mod tests {
     #[test]
     fn options_returns_to_pointer_without_releasing_a_physical_trigger() {
         let mut input = Input::new((1920.0, 1080.0));
-        step(&mut input, 0.0, Pad { pressed: PAD_R3, ..Default::default() });
+        step(&mut input, 0.0, Pad { held: PAD_R3, pressed: PAD_R3, ..Default::default() });
         let events = step(&mut input, 16.0, Pad { pressed: PAD_OPTIONS, held: PAD_OPTIONS, l2: 1.0, ..Default::default() });
         assert!(!input.camera_mode());
         assert!(!events.iter().any(|e| e["t"] == "up" && e["b"] == 2));
         let events = step(&mut input, 32.0, Pad::default());
         assert!(events.iter().any(|e| e["t"] == "up" && e["b"] == 2));
+    }
+    #[test]
+    fn update_chord_requires_two_seconds_and_release_before_repeating() {
+        let mut input = Input::new((1920.0, 1080.0));
+        for now in [0.0, 1000.0, 1999.0] {
+            let events = step(&mut input, now, Pad { held: PAD_L3 | PAD_OPTIONS, ..Default::default() });
+            assert!(!input.take_update_action());
+            assert!(!events.iter().any(|e| e["code"] == "Escape"));
+        }
+        step(&mut input, 2000.0, Pad { held: PAD_L3 | PAD_OPTIONS, ..Default::default() });
+        assert!(input.take_update_action());
+        step(&mut input, 5000.0, Pad { held: PAD_L3 | PAD_OPTIONS, ..Default::default() });
+        assert!(!input.take_update_action());
+        step(&mut input, 5016.0, Pad::default());
+        step(&mut input, 5032.0, Pad { held: PAD_L3 | PAD_OPTIONS, ..Default::default() });
+        step(&mut input, 7032.0, Pad { held: PAD_L3 | PAD_OPTIONS, ..Default::default() });
+        assert!(input.take_update_action());
     }
 }

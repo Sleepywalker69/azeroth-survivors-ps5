@@ -1,4 +1,4 @@
-# Performance investigation — 2026-10-18
+# Performance investigation â€” 2026-10-18
 
 Target: PS5, PPSA99320, 0.96.0 game build, 1920x1080 surface, FIFO presentation.
 Host architecture: wasm2c C, QuickJS-ng 0.17.0, Rust/wgpu 27, PS5 RADV.
@@ -8,8 +8,8 @@ Host architecture: wasm2c C, QuickJS-ng 0.17.0, Rust/wgpu 27, PS5 RADV.
 | Observation | Measured result |
 | --- | --- |
 | Settled home screen | approximately 31 frame callbacks/second |
-| Frame callback | approximately 28–29 ms each |
-| Native command encoding | approximately 1.4–1.5 ms/frame |
+| Frame callback | approximately 28â€“29 ms each |
+| Native command encoding | approximately 1.4â€“1.5 ms/frame |
 | Native resource creation | approximately 0.7 ms/frame |
 | Initial loading | some frame/tick callbacks stall for several seconds |
 | File reads and native graphics during those stalls | a small fraction of elapsed time |
@@ -82,3 +82,33 @@ preservation, limits, allocation/map failures and cleanup, then ran on the conso
 Eboot SHA-256: `d00f62432b25387e96c492b63b9ce0cb6ac381243b8b67bf2fcb83ae9dc4a525`.
 Evidence retained locally: `runtime-096-stable-01.log`, `memory-tests-01.log`,
 and `stable-memory-deploy/deploy-20261018T090807695048Z.json`.
+
+## String-copy result and next CPU candidate
+
+An encoder-only rewrite uses the existing native TextEncoder and bulk typed-array
+copy instead of wasm-bindgen's interpreted ASCII byte loop. With the same 0.96.0
+executable, PS5 string_get time fell from approximately 4.2 to 2.3 microseconds per
+call. The largest zone-entry frame in these two runs fell from 6.31 to 5.10 seconds.
+A settled home-screen window reached 33.9 FPS, but early gameplay remained around
+25 FPS and a longer run later ranged around 18-22 FPS. Scene differences limit
+comparisons; this is not a substantial gameplay FPS fix by itself.
+
+A separate candidate compiles the translated game and QuickJS with
+`-O3 -march=znver2 -ffp-contract=off`, adds bounds-checked direct UTF-8 reads from
+current wasm memory, and removes the extra quarter-frame delay after slow frames.
+It has built successfully, passed package integrity checks and run on the console.
+Settled home-screen windows now measure about 40-41 FPS (previously about 31).
+Recent gameplay windows were approximately 27-32 FPS, with detailed profiling still
+enabled. Scene and imported-save differences limit gameplay comparisons.
+Evidence: runtime-096-zen2-01.log. Eboot SHA-256:
+`bdb9ee04753c4e72ba91c88c6415efcc7d2e7dd464cfd9064f14c467fd566a16`.
+Prepared 0.96.0 glue SHA-256:
+`9735310524234da28d99ab620b2fb397122325cce73ade47926ed43847a06938`.
+
+Native QuickJS regression tests cover exact-helper rejection, ASCII, empty/NUL
+strings, Unicode/surrogates, allocation exceptions, moved memory, malformed UTF-8,
+BOM behavior and bounds checks. The encoder microbenchmark on the build PC took
+763 ms before and 267 ms after for 200,000 short transfers. This is a focused CPU
+test, not the console's frame rate. Windows C/Rust builds also pass. Compiler-cache
+tests verify reuse and invalidation on flag, header and source changes; nine updater
+validation tests pass.
