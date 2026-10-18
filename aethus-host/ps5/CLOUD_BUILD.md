@@ -85,10 +85,14 @@ with all five upstream patches (patch-2 through patch-6). The production HTTPS c
 live. This is one measured full build, not a guarantee for future build times; unchanged
 checks skip compilation. Future runs are started manually. No scheduled workflow exists.
 
-The release includes a normal `PPSA99320-Aethus-0.97.2.zip` for manual installation, its
-checksum and a verification receipt. Base game MPQs and `patch.MPQ` are not bundled.
+The current [Aethus 0.98.0 release](https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/tag/ps5-0.98.0-20261018162554)
+was built locally in WSL from source `5216a3283a513a033635d0ef5b86d37993a12518` to fix
+GitHub's larger redirect headers (`0x80431073`). Its public verification receipt identifies
+the local build and fingerprints the input files separately from the pinned cloud toolkit.
+The release includes `PPSA99320-Aethus-0.98.0.zip`, its checksum and verification receipts.
+Affected older hosts need this manual update once. Base game MPQs and `patch.MPQ` are not bundled.
 The console can download published updates without the PC. LAN installation and first-boot
-confirmation are proved; the first production GitHub update still awaits console confirmation.
+confirmation are proved; the corrected production GitHub update still awaits console confirmation.
 
 The workflow has one publisher at a time. Its GitHub token is exposed only to the publishing
 step, after compilation and verification. The checkout does not retain Git credentials.
