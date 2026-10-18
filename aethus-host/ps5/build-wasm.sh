@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Compile the wasm2c translation of the web build, with wasm2c's runtime, for the PlayStation 5
+# into one static library.
+#
+#   ps5/build-wasm.sh C_DIR RT_DIR WORK [JOBS]   ->  WORK/libwenilla.a
+#
+# C_DIR is wasm2c's output (wenilla.h, wenilla_N.c), RT_DIR wabt's wasm2c folder (wasm-rt.h and
+# the runtime). The memory model differs from the Windows host's: on the console the title heap
+# serves malloc from direct memory but mmap is left to flexible memory (param.json's 1 GiB), so
+# the linear memory is calloc'd and grown with realloc (WASM_RT_USE_MMAP=0) and may move; host.c
+# follows it. Accesses are bounds-checked, and there is no call-depth counting. Every file that
+# includes wasm-rt.h (host.c, the bridge) must be compiled with the same defines (WASM_DEFINES).
+# Objects are rebuilt only when their source is newer.
+set -euo pipefail
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+re=${AZEROTH_RE:-$(cd -- "$here/../../azeroth-survivors-re" && pwd)}
+export PS5_VULKAN=${PS5_VULKAN:-$HOME/ps5/PS5_Vulkan}
+export PS5_PAYLOAD_SDK=${PS5_PAYLOAD_SDK:-$HOME/ps5/PS5_Ghostship/.deps/native/ps5-payload-sdk}
+c_dir=$1 rt_dir=$2 work=$3 jobs=${4:-8}
+mkdir -p "$work/obj-wasm"
+
+export WASM_CC="$re/ps5/tools/cc.sh"
+export WASM_FLAGS="-O2 -fPIC -w -fno-strict-aliasing -D_setjmp=setjmp -D_longjmp=longjmp \
+-DWASM_RT_USE_MMAP=0 -DWASM_RT_MEMCHECK_BOUNDS_CHECK=1 -DWASM_RT_NONCONFORMING_UNCHECKED_STACK_EXHAUSTION=1 \
+-I$rt_dir -I$c_dir"
+export WASM_OBJ="$work/obj-wasm"
+
+compile() {
+    local src=$1 obj
+    obj="$WASM_OBJ/$(basename "${src%.c}").o"
+    [[ $obj -nt $src ]] && return 0
+    local t0=$SECONDS
+    # shellcheck disable=SC2086
+    if sh "$WASM_CC" $WASM_FLAGS -c "$src" -o "$obj.tmp" 2> "$obj.log"; then
+        mv "$obj.tmp" "$obj"
+        echo "$(basename "$src") $((SECONDS - t0))s"
+    else
+        echo "FAILED $(basename "$src")"
+        tail -20 "$obj.log"
+        return 1
+    fi
+}
+export -f compile
+
+# Largest first, so the long poles start early.
+sources=$(ls -S "$c_dir"/wenilla_*.c; printf '%s\n' "$rt_dir/wasm-rt-impl.c" "$rt_dir/wasm-rt-mem-impl.c" \
+    "$rt_dir/wasm-rt-exceptions-impl.c")
+t0=$SECONDS
+printf '%s\n' "$sources" | xargs -P "$jobs" -I{} bash -c 'compile "$1"' _ {}
+objects=()
+while IFS= read -r src; do
+    objects+=("$WASM_OBJ/$(basename "${src%.c}").o")
+done <<<"$sources"
+ar=$(command -v llvm-ar || command -v llvm-ar-18)
+rm -f "$work/libwenilla.a"
+"$ar" rcs "$work/libwenilla.a" "${objects[@]}"
+echo "wrote $work/libwenilla.a in $((SECONDS - t0))s"

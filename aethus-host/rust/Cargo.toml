@@ -1,0 +1,52 @@
+[package]
+name = "aethus-host"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "The native side of the Aethus host: the window, input, WebGPU (as wgpu), Web Audio (as a mixer), the game data and the player's files, for the JS host in ../c"
+
+# Its own workspace: the host sits beside azeroth-survivors-re, not inside it, and borrows only
+# its MPQ reader and its patched wgpu-hal.
+[workspace]
+
+[lib]
+name = "aethus_host"
+path = "src/lib.rs"
+
+# The Windows test host. The PlayStation 5 build takes the library as a static archive
+# (`cargo rustc --lib --crate-type staticlib`) and links it into the title itself.
+[[bin]]
+name = "aethus-host"
+path = "src/main.rs"
+
+[dependencies]
+benilla-mpq = { path = "../../azeroth-survivors-re/crates/benilla-mpq" }
+serde_json = "1"
+raw-window-handle = "0.6"
+# `serde` for wgpu-types' WebGPU names of the texture and vertex formats.
+wgpu = { version = "=27.0.1", default-features = false, features = ["std", "parking_lot", "wgsl", "vulkan", "serde"] }
+# decodeAudioData: the formats the game's data holds.
+symphonia = { version = "=0.6.1", default-features = false, features = ["mp3", "wav", "pcm", "adpcm"] }
+
+[target.'cfg(windows)'.dependencies]
+wgpu = { version = "=27.0.1", default-features = false, features = ["dx12"] }
+winit = "=0.30.13"
+cpal = "=0.17.1"
+
+[lints.rust]
+# The PlayStation 5 target's environment (ps5/x86_64-ps5-freebsd.json in azeroth-survivors-re).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_env, values("ps5"))'] }
+
+[patch.crates-io]
+# wgpu-hal 27.0.4 with the PlayStation 5's Vulkan (RADV linked into the title, the display
+# surface); upstream code on every other target.
+wgpu-hal = { path = "../../azeroth-survivors-re/third_party/wgpu-hal" }
+
+[profile.release]
+debug = "line-tables-only"
+
+[profile.dev]
+# The host's own code is small; its dependencies (wgpu, naga) are slow unoptimised.
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 2

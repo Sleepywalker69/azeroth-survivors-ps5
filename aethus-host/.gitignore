@@ -1,0 +1,11 @@
+build/
+dist/
+rust/target/
+__pycache__/
+*.pyc
+*.log
+*.MPQ
+*.mpq
+*.wasm
+userdata/
+gen/glue.json
