@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,6 +11,21 @@ spec.loader.exec_module(module)
 
 
 class PackageTests(unittest.TestCase):
+    def test_expected_upstream_patches_are_complete_and_verified(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            body = b"expected patch"
+            expected = [{"name": "patch-2.MPQ", "size": len(body), "sha256": hashlib.sha256(body).hexdigest()}]
+            with self.assertRaisesRegex(ValueError, "missing or changed"):
+                module.required_patches([root], expected)
+            (root / "patch-2.MPQ").write_bytes(b"incorrect data")
+            with self.assertRaisesRegex(ValueError, "missing or changed"):
+                module.required_patches([root], expected)
+            (root / "patch-2.MPQ").write_bytes(body)
+            self.assertEqual(module.required_patches([root], expected), {"patch-2.MPQ": root / "patch-2.MPQ"})
+            with self.assertRaisesRegex(ValueError, "identity"):
+                module.required_patches([root], expected + expected)
+
     def test_feed_preserves_payload_and_excludes_private_data(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -29,6 +45,21 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual((output / (f["sha256"] + ".bin")).read_bytes(), files[f["path"]])
             with self.assertRaisesRegex(ValueError, "immutable"):
                 module.build_feed(app, [], "0.97.0", 1, output, "http://192.168.0.123:8840")
+
+            # A complete cloud feed must include the required patch even when a
+            # different patch is already present in the built package.
+            patch = b"required upstream patch"
+            expected = [{"name": "patch-2.MPQ", "size": len(patch), "sha256": hashlib.sha256(patch).hexdigest()}]
+            cloud_output = root / "cloud-feed"
+            with self.assertRaisesRegex(ValueError, "missing or changed"):
+                module.build_feed(app, [root], "0.97.0", 2, cloud_output, "https://example.com/release", expected)
+            self.assertFalse((cloud_output / "update.json").exists())
+            (root / "patch-2.MPQ").write_bytes(patch)
+            module.build_feed(app, [root], "0.97.0", 2, cloud_output, "https://example.com/release", expected)
+            cloud_manifest = json.loads((cloud_output / "update.json").read_text())
+            cloud_patches = [f for f in cloud_manifest["files"] if f["path"].startswith("Data/")]
+            self.assertEqual([f["path"] for f in cloud_patches], ["Data/patch-2.MPQ"])
+            self.assertEqual((cloud_output / (cloud_patches[0]["sha256"] + ".bin")).read_bytes(), patch)
 
     def test_payload_path_policy(self):
         for path in ["../eboot.bin", "userdata/save", "env.txt", "Data/base.MPQ", "js/../save", "web/x:y", "web/x%2Fy"]:

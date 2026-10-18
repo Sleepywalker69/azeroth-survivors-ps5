@@ -38,6 +38,10 @@ final MPQs must match upstream hashes. No Windows game executable is downloaded.
 base game MPQs and `patch.MPQ` remain installation inputs and are preserved on the console.
 Rust builds remain offline. Ubuntu LLVM 18 packages are installed only if missing.
 
+Every patch listed by the upstream manifest must be present and hash-correct before the
+build starts and again during feed packaging. An incomplete offline patch cache stops
+the pipeline; the publisher cannot silently omit a required patch from the update.
+
 Unknown or changed executable glue imports/snippets stop the build for review. Automation
 does not promise compatibility with arbitrary future browser API or game architecture changes.
 All Python tools run with `-I`; downloaded JavaScript is parsed, not executed by the publisher.
@@ -75,6 +79,11 @@ GitHub release history is separate from the console's single-backup policy.
 Before activation: complete the isolated Linux build, publish the pinned toolkit, merge the
 scheduler PR, run an unpublished GitHub build, verify its candidate, then publish and test
 one console update. Enable the scheduled publisher only after that result is accepted.
+
+As of 2026-10-18, the isolated Linux build from the extracted toolkit passes, including
+PS5 SELF validation. Its complete 0.97.0 feed contains all four upstream patches with
+verified sizes and hashes. This validates the toolkit and pipeline locally; a GitHub-hosted
+run and production channel activation are still pending.
 
 The workflow has one publisher at a time. Its GitHub token is exposed only to the publishing
 step, after compilation and verification. The checkout does not retain Git credentials.

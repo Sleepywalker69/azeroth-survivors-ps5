@@ -124,6 +124,7 @@ def reuse_payloads(manifest, previous):
 def prepare(args):
     updater = module("update_pc")
     plan = json.loads(args.plan.read_text())
+    updater.check_patch_manifest(plan["upstream"]["patches"])
     if not plan["changed"]:
         raise ValueError("No build requested by the plan")
     args.evidence.mkdir(parents=True, exist_ok=True)
@@ -135,15 +136,18 @@ def prepare(args):
         if not args.download:
             raise ValueError("Prepare requires --download or an offline --web candidate")
         web = updater.prepare_download(plan["upstream"], args.evidence, args.data)
+    data_dirs = args.data + ([web / "Data"] if (web / "Data").is_dir() else [])
+    expected_patches = plan["upstream"]["patches"]["patches"]
+    packaging = module("package_update")
+    packaging.required_patches(data_dirs, expected_patches)
     app = Path(updater.build(web, args.evidence, args.jobs, "zen2"))
     sequence = int(datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S"))
     if sequence <= (plan["previous"] or {}).get("sequence", 0):
         raise ValueError("Clock/release sequence does not increase")
     version = plan["upstream"]["version"]
     tag = f"ps5-{version}-{sequence}"
-    data_dirs = args.data + ([web / "Data"] if (web / "Data").is_dir() else [])
     # The upstream manifest owns patch-2 onward. Existing base game files are not bundled.
-    module("package_update").build_feed(app, data_dirs, version, sequence, args.output, RELEASES + tag)
+    packaging.build_feed(app, data_dirs, version, sequence, args.output, RELEASES + tag, expected_patches)
     manifest_path = args.output / "update.json"
     manifest = json.loads(manifest_path.read_text())
     reuse_payloads(manifest, plan["previous"])

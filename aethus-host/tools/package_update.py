@@ -31,7 +31,23 @@ def allowed(path):
             or path.startswith("Data/") and bool(PATCH.fullmatch(path[5:])))
 
 
-def build_feed(app, data_dirs, version, sequence, output, base_url):
+def required_patches(data_dirs, expected):
+    selected = {}
+    for entry in expected:
+        name, size, sha = (entry[k] for k in ("name", "size", "sha256"))
+        if not PATCH.fullmatch(name) or name in selected or not re.fullmatch(r"[0-9a-f]{64}", sha):
+            raise ValueError("Invalid expected patch identity")
+        candidates = [directory / name for directory in reversed(data_dirs)]
+        if any(path.is_symlink() for path in candidates):
+            raise ValueError("Symlink patch input: " + name)
+        source = next((path for path in candidates if path.is_file() and path.stat().st_size == size and digest(path) == sha), None)
+        if source is None:
+            raise ValueError("Required upstream patch is missing or changed: " + name)
+        selected[name] = source
+    return selected
+
+
+def build_feed(app, data_dirs, version, sequence, output, base_url, expected_patches=None):
     if not SAFE.fullmatch(version) or version in (".", "..") or sequence <= 0:
         raise ValueError("Invalid version or sequence")
     parsed = urlsplit(base_url)
@@ -51,12 +67,19 @@ def build_feed(app, data_dirs, version, sequence, output, base_url):
             raise ValueError(f"Symlink in package: {relative}")
         if path.is_file() and allowed(relative):
             paths[relative] = path
-    for directory in data_dirs:
-        for path in directory.glob("patch*.MPQ"):
-            if path.is_symlink():
-                raise ValueError(f"Symlink patch: {path.name}")
-            if PATCH.fullmatch(path.name):
-                paths["Data/" + path.name] = path
+    pinned = {}
+    if expected_patches is not None:
+        paths = {name: path for name, path in paths.items() if not name.startswith("Data/")}
+        selected = required_patches([app / "Data", *data_dirs], expected_patches)
+        paths.update({"Data/" + name: path for name, path in selected.items()})
+        pinned = {"Data/" + entry["name"]: (entry["size"], entry["sha256"]) for entry in expected_patches}
+    else:
+        for directory in data_dirs:
+            for path in directory.glob("patch*.MPQ"):
+                if path.is_symlink():
+                    raise ValueError(f"Symlink patch: {path.name}")
+                if PATCH.fullmatch(path.name):
+                    paths["Data/" + path.name] = path
     if not REQUIRED.issubset(paths):
         raise ValueError("Incomplete package")
     if len(paths) > 1024 or len({p.lower() for p in paths}) != len(paths):
@@ -71,6 +94,8 @@ def build_feed(app, data_dirs, version, sequence, output, base_url):
         if size > limit or total > 8 * 1024**3:
             raise ValueError(f"Update size limit: {relative}")
         sha = digest(source)
+        if relative in pinned and pinned[relative] != (size, sha):
+            raise ValueError("Upstream patch changed during packaging: " + relative)
         blob = sha + ".bin"
         destination = output / blob
         if not destination.exists():
