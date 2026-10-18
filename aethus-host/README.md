@@ -5,7 +5,13 @@ wasm2c translates the game to C; QuickJS-ng runs its wasm-bindgen glue and the b
 API shims; the Rust host supplies graphics, sound, MPQ reads, storage and input.
 The PS5 package uses title ID **PPSA99320**.
 
-The console has updated from 0.96.0 to **0.97.0** and confirmed a successful first boot.
+[Aethus 0.97.2 for PS5](https://github.com/Sleepywalker69/azeroth-survivors-ps5/releases/tag/ps5-0.97.2-20261018152922)
+is published with a normal title-folder ZIP, checksums and a live console update feed.
+The full GitHub build passed in **34 minutes 59 seconds**. Builds are manual only; no
+scheduled workflow is enabled. Existing base game data and `patch.MPQ` are still required.
+
+The console has updated from 0.96.0 to **0.97.0** and confirmed a successful first boot;
+the first GitHub-feed installation of 0.97.2 still awaits console confirmation.
 The current host measures approximately **47 FPS on the settled home screen** with
 detailed profiling off. The original timing build measured about 31 FPS. Stable memory
 growth substantially reduced loading stalls; zone transitions and gameplay performance
@@ -116,11 +122,12 @@ The console updater has downloaded and installed 0.97.0 and confirmed its first 
 The initial copy dropped executable permissions; that launch failure was repaired, and
 the current host preserves those permissions. Thirteen transaction/configuration tests
 pass. On console, cleanup removes consumed staging and retains the previous backup.
-The larger copy buffer is built and installed; its speed needs the next update test.
+The larger-buffer installer completed a console update that the tester reported as quick;
+the exact duration was not retained across relaunch.
 See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed configuration, release
-preparation and recovery details. The default GitHub feed
-URL has not been published. [CLOUD_BUILD.md](ps5/CLOUD_BUILD.md) describes the prepared
-GitHub publisher and its activation requirements.
+preparation and recovery details. The default GitHub feed is live.
+[CLOUD_BUILD.md](ps5/CLOUD_BUILD.md) describes the verified GitHub publisher and how to
+start a build manually. The PS5 can download published updates while the PC is off.
 
 Existing source notices remain in place. Third-party license texts needed by the
 PS5 package are in `ps5/licenses/`.

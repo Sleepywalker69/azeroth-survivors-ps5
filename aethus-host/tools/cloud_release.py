@@ -177,8 +177,18 @@ def gh(*args):
 
 def api(path, method="GET", **fields):
     args = ["api", f"repos/{REPOSITORY}/" + path, "--method", method]
-    for key, value in fields.items(): args += ["-f", f"{key}={value}"]
+    for key, value in fields.items():
+        if isinstance(value, bool): args += ["-F", f"{key}={str(value).lower()}"]
+        elif isinstance(value, int): args += ["-F", f"{key}={value}"]
+        else: args += ["-f", f"{key}={value}"]
     return json.loads(gh(*args))
+
+
+def create_release(tag, source, title, notes, draft):
+    # The creation response is authoritative even while GitHub's tag/list
+    # endpoints have not yet made a new draft visible.
+    return api("releases", "POST", tag_name=tag, target_commitish=source,
+               name=title, body=notes, draft=draft, make_latest="false")
 
 
 def assets(release_id):
@@ -253,9 +263,7 @@ def publish(args):
     notes.write_text(f"Aethus {manifest['version']} for PPSA99320.\nSource: {source}\n"
                      "Built from the reviewed web-host interface. Saves and base game files are preserved.\n")
     if release is None:
-        gh("release", "create", tag, "--repo", REPOSITORY, "--target", source, "--draft", "--title", f"Aethus PS5 {manifest['version']}", "--notes-file", notes)
-        release = release_by_tag(tag)
-        if release is None: raise ValueError("Created draft release is not visible: " + tag)
+        release = create_release(tag, source, f"Aethus PS5 {manifest['version']}", notes.read_text(), True)
     existing = assets(release["id"])
     for name, path in new_assets.items():
         if name not in existing:
@@ -284,8 +292,7 @@ def publish(args):
         raise ValueError("Channel advanced during upload; refusing promotion")
     channel = release_by_tag(CHANNEL)
     if channel is None:
-        gh("release", "create", CHANNEL, "--repo", REPOSITORY, "--target", source, "--title", "PS5 update channel", "--notes-file", notes, "--latest=false")
-        channel = api("releases/tags/" + CHANNEL)
+        channel = create_release(CHANNEL, source, "PS5 update channel", notes.read_text(), False)
     candidate = args.evidence / f"update-{manifest['sequence']}.json"
     shutil.copyfile(manifest_path, candidate)
     channel_assets = assets(channel["id"])
