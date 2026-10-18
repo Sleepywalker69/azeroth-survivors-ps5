@@ -20,7 +20,7 @@ if [[ ! -e $link ]]; then ln -s "$kit/rust" "$link"; fi
 export RUSTUP_HOME="$work/rustup" RUSTUP_TOOLCHAIN="$toolchain"
 export CARGO_HOME="$kit/cargo" CARGO_TARGET_DIR="$work/target" CARGO_BUILD_JOBS=4
 export AETHUS_RELEASES="$work/releases"
-export LLVM_CONFIG=llvm-config-18 PS5_CLANG=clang-18 PS5_CLANGXX=clang++-18
+export LLVM_CONFIG="$(command -v llvm-config-18)" PS5_CLANG=clang-18 PS5_CLANGXX=clang++-18
 export AZEROTH_RE="$repo" PS5_PAYLOAD_SDK="$kit/sdk" PS5_VULKAN="$kit/vulkan"
 export WASM2C="$kit/wabt/bin/wasm2c" WASM2C_RT="$kit/wabt/wasm2c" QUICKJS_SRC="$kit/quickjs"
 python3 -I "$host/tools/cloud_release.py" prepare "$@"
