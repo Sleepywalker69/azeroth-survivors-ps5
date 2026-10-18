@@ -79,8 +79,19 @@ restore the previous files. New files absent from the old version are removed du
 The first launch after installation is a trial. Reaching the client's ready stage and 120
 frame callbacks confirms it. If the next launch finds an unconfirmed trial, it restores the
 previous version and closes. That failed release is recorded so it is not immediately retried.
-Backups remain available for manual recovery. These checks cannot repair a new executable
-that fails before the host's updater code can run; its backup can be restored over FTP.
+After confirmation, the host keeps only the backup of the previous version and removes older
+update backups and consumed staging files. An active installation or unconfirmed first boot
+keeps its recovery files. A separately staged next update is retained. This policy applies to
+the console updater's `userdata/updates/` folders; FTP development deployment archives are
+separate. These checks cannot repair a new executable that fails before the host's updater
+code can run; its backup can be restored over FTP.
+
+Large local copies use 1 MiB buffers and preserve executable permissions. The original
+installer's small-buffer copy was measured at roughly 240 KiB/s on the title mount, making
+the 262 MB executable replacement take about 18 minutes after its backup. The larger-buffer
+implementation passes offline copy/transaction tests and builds for PS5; its console speed
+still needs measurement. Notifications distinguish backing up from installing, and the log
+records each file and phase.
 
 Receipts and state are in `userdata/updates/`; runtime progress/errors are in
 `userdata/aethus-host.log`. The tests inject interruption after each live-file replacement,
@@ -94,6 +105,10 @@ python3 -I aethus-host/test/test_package_update.py
 ```
 
 The isolated Rust test crate uses the actual transaction implementation without the game or
-PS5 libraries. Console networking, installation and relaunch still need console validation.
+PS5 libraries. Console download, installation and first-boot confirmation of 0.97.0 have
+been verified. That first installer dropped executable bits; restoring mode 0755 fixed the
+launch rejection, and the current host preserves them. The current host has also cleared
+consumed staging and retained exactly one previous backup on console. Larger-buffer copy
+speed still needs measurement on the next console update.
 The networking ABI references are the local PS5_PayloadSDK examples and the
 [OpenOrbis HTTP declarations](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/master/include/orbis/Http.h).

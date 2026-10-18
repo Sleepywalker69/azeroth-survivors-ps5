@@ -68,6 +68,53 @@ fn optional_configuration_distinguishes_missing_invalid_and_unreadable() {
 }
 
 #[test]
+fn large_copy_preserves_bytes_and_executable_mode() {
+    let f = Fixture::new();
+    let source = f.root.join("source.bin");
+    let target = f.root.join("eboot.bin");
+    let bytes: Vec<u8> = (0..2 * 1024 * 1024 + 37).map(|i| (i % 251) as u8).collect();
+    fs::write(&source, &bytes).unwrap();
+    copy_atomic(&source, &target).unwrap();
+    assert_eq!(fs::read(&target).unwrap(), bytes);
+    #[cfg(unix)] {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(fs::metadata(&target).unwrap().permissions().mode() & 0o111, 0o111);
+    }
+}
+
+#[test]
+fn retention_waits_for_confirmation_and_keeps_one_previous_version() {
+    let mut f = Fixture::new(); f.stage(); f.updater.install(&f.manifest).unwrap();
+    let older = f.updater.state.join("backups/older-version");
+    fs::create_dir(&older).unwrap(); fs::write(older.join("eboot.bin"), b"older").unwrap();
+    let keep = read_json(&f.updater.state.join("transaction.json")).unwrap()["backup"].as_str().unwrap().to_owned();
+    f.updater.cleanup_confirmed().unwrap();
+    assert!(older.exists());
+    assert_eq!(f.updater.recover().unwrap(), Recovery::Trial);
+    f.updater.cleanup_confirmed().unwrap();
+    assert!(older.exists());
+    f.updater.confirm_boot().unwrap(); f.updater.cleanup_confirmed().unwrap();
+    assert!(!older.exists());
+    assert!(f.updater.state.join("backups").join(keep).is_dir());
+    assert_eq!(fs::read_dir(f.updater.state.join("backups")).unwrap().count(), 1);
+    assert_eq!(fs::read_dir(f.updater.state.join("staging")).unwrap().count(), 0);
+    f.check_saves();
+}
+
+#[test]
+fn retention_preserves_a_new_ready_release() {
+    let mut f = Fixture::new(); f.stage(); f.updater.install(&f.manifest).unwrap();
+    f.updater.recover().unwrap(); f.updater.confirm_boot().unwrap();
+    let mut next = f.manifest.clone();
+    next.id = "future-release".into(); next.raw["id"] = json!(next.id); next.sequence = 3; next.raw["sequence"] = json!(3);
+    f.updater.stage(&next, &f.policy, &mut f.fetch, |_, _, _| ()).unwrap();
+    f.updater.cleanup_confirmed().unwrap();
+    assert!(f.updater.stage_dir(&next).unwrap().is_dir());
+    assert_eq!(f.updater.ready().unwrap().unwrap().id, next.id);
+    assert!(!f.updater.stage_dir(&f.manifest).unwrap().exists());
+}
+
+#[test]
 fn complete_install_is_verified_then_confirmed() {
     let mut f = Fixture::new();
     assert!(f.updater.check(&mut f.fetch, &f.policy).unwrap().is_some());

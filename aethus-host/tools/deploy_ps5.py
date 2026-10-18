@@ -2,7 +2,7 @@
 """Deploy PPSA99320 over FTP, verifying each staged file and retaining replaced files.
 
 The caller must ensure the title is closed. Existing userdata and extra Data files are kept.
-No remote commands, process control, or deletion are used.
+No process control or deletion is used. Executable permissions are set before promotion.
 """
 import argparse
 from datetime import datetime, timezone
@@ -127,6 +127,12 @@ def deploy(app, data_dirs, host, port, evidence, env_file=None):
                 actual = remote_digest(ftp, staged)
                 if actual != expected:
                     raise ValueError(f"FTP readback mismatch for {relative}: {actual} != {expected}")
+                if relative == "eboot.bin":
+                    ftp.sendcmd("SITE CHMOD 755 " + staged)
+                    listing = []
+                    ftp.retrlines("LIST " + staged, listing.append)
+                    if not listing or not listing[0].startswith("-rwxr-xr-x"):
+                        raise ValueError("Staged executable permissions did not verify")
                 entry = {"path": relative, "size": expected[0], "sha256": expected[1], "action": "staged-verified", "staged": staged}
                 receipt["files"].append(entry)
                 save()

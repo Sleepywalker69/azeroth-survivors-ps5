@@ -34,6 +34,9 @@ impl Service {
             std::env::var("AETHUS_PROFILE"), std::env::var("AETHUS_FPS"));
         let updater = Updater::new(root)?;
         let recovery = updater.recover()?;
+        if recovery == Recovery::Clean {
+            if let Err(e) = updater.cleanup_confirmed() { warn!("update: backup cleanup: {e}"); }
+        }
         if recovery == Recovery::Restart { notify("Aethus: the previous version was restored. Please launch again."); }
         let config_path = root.join("userdata/updater.json");
         let policy = match (|| {
@@ -93,7 +96,11 @@ impl Service {
         if self.healthy_frames >= 120 {
             if self.trial {
                 match self.updater.confirm_boot() {
-                    Ok(()) => { self.trial = false; notify("Aethus update started successfully. Your previous version remains backed up."); }
+                    Ok(()) => {
+                        self.trial = false;
+                        notify("Aethus update started successfully. Your previous version remains backed up.");
+                        if let Err(e) = self.updater.cleanup_confirmed() { warn!("update: backup cleanup: {e}"); }
+                    }
                     Err(e) => { warn!("update: could not confirm first boot: {e}"); return false; }
                 }
             }
@@ -127,7 +134,13 @@ impl Service {
     pub fn install_and_close(&mut self) -> Result<()> {
         let m = self.ready.take().ok_or("no verified update is ready")?;
         notify(&format!("Installing Aethus {}. The game will close when finished.", m.version));
-        match self.updater.install(&m) {
+        match self.updater.install_reporting(&m, |phase, path| {
+            say!("update: {phase} {path}");
+            if path == "eboot.bin" {
+                notify(if phase == "backup" { "Aethus: backing up the previous version." }
+                       else { "Aethus: installing the new version." });
+            }
+        }) {
             Ok(()) => { notify("Aethus update installed. Please launch the game again."); Ok(()) }
             Err(e) => {
                 warn!("update: installation failed: {e}");

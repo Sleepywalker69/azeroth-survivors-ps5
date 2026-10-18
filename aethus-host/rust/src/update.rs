@@ -211,7 +211,26 @@ fn write_json(path: &Path, value: &Value) -> Result<()> {
     atomic_write(path, |f| io(f.write_all(&bytes)))
 }
 fn copy_atomic(from: &Path, to: &Path) -> Result<()> {
-    atomic_write(to, |out| { io(std::io::copy(&mut io(File::open(from))?, out))?; Ok(()) })
+    let mut source = io(File::open(from))?;
+    atomic_write(to, |out| {
+        // The title mount makes small writes very expensive. Match the HTTP transport's
+        // large transfers instead of std::io::copy's small generic fallback buffer.
+        let mut buffer = vec![0u8; 1024 * 1024];
+        loop {
+            let n = io(source.read(&mut buffer))?;
+            if n == 0 { break; }
+            io(out.write_all(&buffer[..n]))?;
+        }
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = io(source.metadata())?.permissions();
+            if to.file_name().is_some_and(|name| name == "eboot.bin") {
+                permissions.set_mode(permissions.mode() | 0o111);
+            }
+            io(out.set_permissions(permissions))?;
+        }
+        Ok(())
+    })
 }
 fn read_json(path: &Path) -> Result<Value> {
     read_optional_json(path)?.ok_or_else(|| format!("missing update state: {}", path.display()))
@@ -300,7 +319,14 @@ impl Updater {
     }
     /// Called only after the host has stopped calling game code and flushed storage.
     pub fn install(&self, m: &Manifest) -> Result<()> { self.install_with(m, |_| Ok(())) }
+    pub fn install_reporting(&self, m: &Manifest, progress: impl FnMut(&str, &str)) -> Result<()> {
+        self.install_steps(m, |_| Ok(()), progress)
+    }
     fn install_with(&self, m: &Manifest, mut checkpoint: impl FnMut(usize) -> Result<()>) -> Result<()> {
+        self.install_steps(m, &mut checkpoint, |_, _| ())
+    }
+    fn install_steps(&self, m: &Manifest, mut checkpoint: impl FnMut(usize) -> Result<()>,
+                     mut progress: impl FnMut(&str, &str)) -> Result<()> {
         if self.state.join("transaction.json").exists() { return Err("an update transaction already needs recovery".into()); }
         let changed = self.preflight(m)?;
         let transaction = format!("{}-{}", m.sequence, nonce());
@@ -308,6 +334,7 @@ impl Updater {
         ensure_dir(&backup)?;
         let mut old = Vec::new();
         for a in &changed {
+            progress("backup", &a.path);
             let live = checked_join(&self.root, &a.path)?;
             let saved = checked_join(&backup, &a.path)?;
             let original = if live.exists() {
@@ -324,6 +351,7 @@ impl Updater {
         write_json(&self.state.join("transaction.json"), &journal)?;
         checkpoint(0)?;
         for (i, a) in changed.iter().enumerate() {
+            progress("replace", &a.path);
             copy_atomic(&checked_join(&self.stage_dir(m)?, &a.path)?, &checked_join(&self.root, &a.path)?)?;
             if !matches(&self.root.join(&a.path), a) { return Err(format!("installed verification failed: {}", a.path)); }
             checkpoint(i + 1)?;
@@ -382,6 +410,29 @@ impl Updater {
             io(fs::remove_file(path))?;
             if self.state.join("ready.json").exists() { io(fs::remove_file(self.state.join("ready.json")))?; }
             sync_dir(&self.state)?;
+        }
+        Ok(())
+    }
+    /// Only a confirmed release may discard older backups. Keep the single previous
+    /// version named by last-success; an active transaction keeps all recovery inputs.
+    pub fn cleanup_confirmed(&self) -> Result<()> {
+        if self.state.join("transaction.json").try_exists().map_err(|e| e.to_string())? { return Ok(()); }
+        let Some(success) = read_optional_json(&self.state.join("last-success.json"))? else { return Ok(()); };
+        let keep = text(&success, "backup")?;
+        if !identifier(keep) { return Err("invalid retained backup identity".into()); }
+        let ready = self.ready()?.map(|m| m.id);
+        for (directory, retained) in [("backups", Some(keep)), ("staging", ready.as_deref())] {
+            let parent = checked_join(&self.state, directory)?;
+            if !parent.try_exists().map_err(|e| e.to_string())? { continue; }
+            for entry in io(fs::read_dir(&parent))? {
+                let entry = io(entry)?;
+                let name = entry.file_name();
+                let name = name.to_str().ok_or("invalid update directory name")?;
+                if retained == Some(name) { continue; }
+                let path = checked_join(&parent, name)?;
+                if io(entry.file_type())?.is_dir() { io(fs::remove_dir_all(path))?; }
+            }
+            sync_dir(&parent)?;
         }
         Ok(())
     }
