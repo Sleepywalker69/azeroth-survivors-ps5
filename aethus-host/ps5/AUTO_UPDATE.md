@@ -96,10 +96,11 @@ code can run; its backup can be restored over FTP.
 Large local copies use 1 MiB buffers and preserve executable permissions. The original
 installer's small-buffer copy was measured at roughly 240 KiB/s on the title mount, making
 the 262 MB executable replacement take about 18 minutes after its backup. The larger-buffer
-implementation passes offline copy/transaction tests and a completed console update was
-reported as quick. Its exact duration was not retained because the runtime log is recreated
-on launch. Notifications distinguish backing up from installing, and the log records each
-file and phase.
+implementation passes offline copy/transaction tests. The measured 0.97.0 to 0.98.0 update
+took **7.280 seconds** for backup, installation and verification, including the 262 MB
+executable. Checking GitHub, downloading changed files and staging verification took
+**57.828 seconds** before installation. Logs were captured across relaunch. Notifications
+distinguish backing up from installing, and the log records each file and phase.
 
 Receipts and state are in `userdata/updates/`; runtime progress/errors are in
 `userdata/aethus-host.log`. The tests inject interruption after each live-file replacement,
@@ -117,7 +118,9 @@ PS5 libraries. Console download, installation and first-boot confirmation of 0.9
 been verified. That first installer dropped executable bits; restoring mode 0755 fixed the
 launch rejection, and the current host preserves them. The current host has also cleared
 consumed staging and retained exactly one previous backup on console. A larger-buffer update
-completed quickly according to the console tester; an exact timed measurement and the first
-production GitHub HTTPS update test are still pending.
+to 0.98.0 completed in 7.280 seconds. The production GitHub HTTPS download followed 302 to
+200 responses, installed successfully and confirmed first boot. Independent FTP readback
+matched all 20 release files to the published manifest; executable mode was 0755, exactly
+one previous backup remained, and no transaction or ready-update marker remained.
 The networking ABI references are the local PS5_PayloadSDK examples and the
 [OpenOrbis HTTP declarations](https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/blob/master/include/orbis/Http.h).

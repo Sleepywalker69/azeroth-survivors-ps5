@@ -91,8 +91,12 @@ GitHub's larger redirect headers (`0x80431073`). Its public verification receipt
 the local build and fingerprints the input files separately from the pinned cloud toolkit.
 The release includes `PPSA99320-Aethus-0.98.0.zip`, its checksum and verification receipts.
 Affected older hosts need this manual update once. Base game MPQs and `patch.MPQ` are not bundled.
-The console can download published updates without the PC. LAN installation and first-boot
-confirmation are proved; the corrected production GitHub update still awaits console confirmation.
+The console downloaded 0.98.0 directly over GitHub HTTPS, installed it and confirmed first
+boot. Download/verification took 57.828 seconds and backup/install/verification took 7.280
+seconds. Independent FTP readback matched all 20 installed release files; the executable
+retained mode 0755 and exactly one previous backup remained. The attached
+`console-verification.json` records the result without saves or private runtime logs.
+The console can fetch published updates without the PC.
 
 The workflow has one publisher at a time. Its GitHub token is exposed only to the publishing
 step, after compilation and verification. The checkout does not retain Git credentials.
