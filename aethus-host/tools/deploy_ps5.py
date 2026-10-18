@@ -90,6 +90,8 @@ def deploy(app, data_dirs, host, port, evidence, env_file=None):
     if env_file is not None:
         if not env_file.is_file() or env_file.is_symlink():
             raise ValueError("Invalid environment file")
+        if b"\x00" in env_file.read_bytes():
+            raise ValueError("Environment file contains NUL bytes; restore it before deployment")
         files.insert(next((i for i, (name, _) in enumerate(files) if name.startswith("Data/")), len(files)), ("env.txt", env_file))
     evidence.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")

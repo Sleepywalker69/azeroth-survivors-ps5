@@ -112,3 +112,15 @@ BOM behavior and bounds checks. The encoder microbenchmark on the build PC took
 test, not the console's frame rate. Windows C/Rust builds also pass. Compiler-cache
 tests verify reuse and invalidation on flag, header and source changes; nine updater
 validation tests pass.
+
+
+## Cadence without detailed profiling
+
+The 0.96.0 updater build with the CPU, string and frame-pacing fixes measured
+45.3-46.8 frame callbacks/second on the home screen while checking files and
+downloading a 262 MB update. `AETHUS_PROFILE=0`, `AETHUS_FPS=1`; the initial
+five-second loading window was 11.2 FPS. This removes the detailed per-import
+timing overhead present in the earlier 40-41 FPS measurements. It is not a
+controlled gameplay comparison. Evidence: `runtime-updater-path-02.log`.
+Eboot SHA-256:
+`8838134ef1ba491e3e33f1b081a0d6c10d9c598b6404497c23df99778e153bf7`.

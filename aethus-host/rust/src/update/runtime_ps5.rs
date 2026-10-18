@@ -1,5 +1,5 @@
 //! Background checks/downloads and controller-driven install. Startup recovery runs before JS.
-use super::{read_json, Manifest, Policy, Recovery, Result, Updater};
+use super::{read_optional_json, Manifest, Policy, Recovery, Result, Updater};
 use crate::log::{say, warn};
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver};
@@ -28,12 +28,19 @@ pub struct Service {
 impl Service {
     /// A true return requests closing the title: an executable was replaced or recovered.
     pub fn open(root: &Path) -> Result<(Self, bool)> {
+        say!("update: install root {} (eboot: {:?})", root.display(),
+            std::fs::metadata(root.join("eboot.bin")).map(|m| m.len()));
+        say!("host: AETHUS_PROFILE={:?}, AETHUS_FPS={:?}",
+            std::env::var("AETHUS_PROFILE"), std::env::var("AETHUS_FPS"));
         let updater = Updater::new(root)?;
         let recovery = updater.recover()?;
         if recovery == Recovery::Restart { notify("Aethus: the previous version was restored. Please launch again."); }
         let config_path = root.join("userdata/updater.json");
         let policy = match (|| {
-            let config = if config_path.exists() { read_json(&config_path)? } else { serde_json::Value::Null };
+            let saved = read_optional_json(&config_path)?;
+            say!("update: configuration {} ({})", config_path.display(),
+                if saved.is_some() { "loaded" } else { "absent; using default feed" });
+            let config = saved.unwrap_or(serde_json::Value::Null);
             if config["enabled"] == false { Ok(None) } else {
                 Policy::new(config["manifest_url"].as_str().unwrap_or(FEED), config["manifest_sha256"].as_str()).map(Some)
             }

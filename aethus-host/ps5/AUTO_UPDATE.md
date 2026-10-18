@@ -15,6 +15,10 @@ JavaScript/WASM download on its own is not a PS5 executable.
 
 ## Feed configuration
 
+The title accesses its installed folder through `/app0`, including
+`/app0/userdata/updater.json`. FTP exposes that same title folder at
+`/data/homebrew/PPSA99320`. `AETHUS_INSTALL_ROOT` can override the title-side root.
+
 `userdata/updater.json` is optional. The default manifest URL is:
 
 ```

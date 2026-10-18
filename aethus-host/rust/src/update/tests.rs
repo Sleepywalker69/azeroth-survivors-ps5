@@ -56,6 +56,18 @@ impl Fixture {
 impl Drop for Fixture { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.root); } }
 
 #[test]
+fn optional_configuration_distinguishes_missing_invalid_and_unreadable() {
+    let f = Fixture::new();
+    let path = f.root.join("userdata/updater.json");
+    assert!(read_optional_json(&path).unwrap().is_none());
+    fs::write(&path, br#"{"enabled":true,"manifest_url":"https://example.com/update.json"}"#).unwrap();
+    assert_eq!(read_optional_json(&path).unwrap().unwrap()["manifest_url"], "https://example.com/update.json");
+    fs::write(&path, [0u8; 78]).unwrap();
+    assert!(read_optional_json(&path).is_err());
+    assert!(read_optional_json(&f.root.join("userdata")).is_err());
+}
+
+#[test]
 fn complete_install_is_verified_then_confirmed() {
     let mut f = Fixture::new();
     assert!(f.updater.check(&mut f.fetch, &f.policy).unwrap().is_some());

@@ -112,10 +112,11 @@ its direct FTP deployment proof is pending at this checkpoint. The user requeste
 that the next game upgrade run through the console auto-updater instead.
 
 The console updater is implemented and PS5-built, with native HTTPS, background
-downloads, verified staging, installation, backups and startup rollback. Its nine
-transaction tests and two feed-packaging tests pass; console networking/install
-validation is pending. See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed
-configuration, release preparation and recovery details. The default GitHub feed
+downloads, verified staging, installation, backups and startup rollback. Its ten
+transaction/configuration tests and two feed-packaging tests pass. Native HTTPS checks
+and the retry chord have run on the console; download/install validation is pending.
+See [AUTO_UPDATE.md](ps5/AUTO_UPDATE.md) for controls, feed configuration, release
+preparation and recovery details. The default GitHub feed
 URL has not been published.
 
 Existing source notices remain in place. Third-party license texts needed by the

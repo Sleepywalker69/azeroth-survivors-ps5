@@ -214,10 +214,19 @@ fn copy_atomic(from: &Path, to: &Path) -> Result<()> {
     atomic_write(to, |out| { io(std::io::copy(&mut io(File::open(from))?, out))?; Ok(()) })
 }
 fn read_json(path: &Path) -> Result<Value> {
+    read_optional_json(path)?.ok_or_else(|| format!("missing update state: {}", path.display()))
+}
+fn read_optional_json(path: &Path) -> Result<Option<Value>> {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
     let mut bytes = Vec::new();
-    io(io(File::open(path))?.take(MANIFEST_LIMIT + 1).read_to_end(&mut bytes))?;
+    file.take(MANIFEST_LIMIT + 1).read_to_end(&mut bytes)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
     if bytes.len() as u64 > MANIFEST_LIMIT { return Err("oversized update state".into()); }
-    serde_json::from_slice(&bytes).map_err(|e| e.to_string())
+    serde_json::from_slice(&bytes).map(Some).map_err(|e| format!("{}: {e}", path.display()))
 }
 
 pub struct Updater { pub root: PathBuf, pub state: PathBuf }

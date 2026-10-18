@@ -71,7 +71,7 @@ fn run() -> Result<c_int, String> {
     }
     crate::log::to_file(&home.join("aethus-host.log"));
     let (mut updater, close) = crate::update::runtime_ps5::Service::open(
-        &env_path("AETHUS_INSTALL_ROOT", "/data/homebrew/PPSA99320"))?;
+        &env_path("AETHUS_INSTALL_ROOT", "/app0"))?;
     if close { return Ok(0); }
     let js = env_path("AETHUS_JS", "/app0/js");
     let web = env_path("AETHUS_WEB", "/app0/web");
