@@ -11,8 +11,6 @@ on:
         description: Build even if the website and host source are unchanged
         type: boolean
         default: false
-  schedule:
-    - cron: '17 */6 * * *'
 
 permissions:
   contents: read
@@ -23,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'Sleepywalker69/azeroth-survivors-ps5' && (github.event_name == 'workflow_dispatch' || vars.AETHUS_CLOUD_ENABLED == 'true')
+    if: github.repository == 'Sleepywalker69/azeroth-survivors-ps5' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     permissions:
@@ -32,7 +30,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_TERM_COLOR: never
     steps:
-      # The scheduler lives on the default branch; the maintained PS5 sources live here.
+      # The workflow lives on the default branch; maintained PS5 sources live here.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ps5-port
@@ -87,14 +85,14 @@ jobs:
             --plan "$RUNNER_TEMP/aethus/plan.json" --download --jobs 4 \
             --evidence "$RUNNER_TEMP/aethus/evidence" --output "$RUNNER_TEMP/aethus/feed"
       - name: Publish verified assets and promote the channel last
-        if: steps.check.outputs.changed == 'true' && (inputs.publish == true || (github.event_name == 'schedule' && vars.AETHUS_CLOUD_ENABLED == 'true'))
+        if: steps.check.outputs.changed == 'true' && inputs.publish == true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 -I source/aethus-host/tools/cloud_release.py publish \
             --feed "$RUNNER_TEMP/aethus/feed" --evidence "$RUNNER_TEMP/aethus/evidence"
       - name: Keep candidate for an unpublished test build
-        if: success() && steps.check.outputs.changed == 'true' && inputs.publish != true && github.event_name != 'schedule'
+        if: success() && steps.check.outputs.changed == 'true' && inputs.publish != true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: aethus-ps5-candidate-${{ github.run_id }}

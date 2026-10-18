@@ -1,14 +1,15 @@
 # GitHub builder for PS5 updates
 
-The workflow checks the Aethus website every six hours, compares web/patch identity and
-host source with the published channel, and compiles only when something changes. It runs
-on GitHub's Ubuntu 24.04 runner. The user's PC is not involved after activation.
+The workflow runs manually from GitHub Actions. It checks the Aethus website, compares
+web/patch identity and host source with the published channel, and compiles only when
+something changes. It runs on GitHub's standard Ubuntu 24.04 runner. The user's PC is not
+involved in a normal build or publication. There is no scheduled trigger.
 
 This pipeline is prepared for `Sleepywalker69/azeroth-survivors-ps5`. The maintained source
-branch is `ps5-port`. GitHub schedules require the workflow file on the default branch,
-`main`, so the scheduler is delivered through a pull request. Automatic execution is also
-guarded by the repository variable `AETHUS_CLOUD_ENABLED=true`. Until that variable is set
-and the pinned build kit is published, the scheduled publisher is inactive.
+branch is `ps5-port`. The manual workflow is delivered to the default branch, `main`,
+through a pull request. Open **Actions > Aethus PS5 update builder > Run workflow** to check
+or build a release. Select `publish` to promote a verified build to the console feed;
+leave it clear for a test artifact. No repository variable enables background runs.
 
 ## Inputs and boundaries
 
@@ -76,9 +77,10 @@ changing the console channel. `force=true` rebuilds the same upstream version fo
 Build logs and plans are retained for 14 days; unpublished candidate artifacts for 3 days.
 GitHub release history is separate from the console's single-backup policy.
 
-Before activation: complete the isolated Linux build, publish the pinned toolkit, merge the
-scheduler PR, run an unpublished GitHub build, verify its candidate, then publish and test
-one console update. Enable the scheduled publisher only after that result is accepted.
+Before first publication: complete the isolated Linux build, publish the pinned toolkit,
+merge the workflow PR, run an unpublished GitHub build, verify its candidate, then publish
+and test one console update. Future runs are started manually; the console can download
+published updates without the PC.
 
 As of 2026-10-18, the isolated Linux build from the extracted toolkit passes, including
 PS5 SELF validation. Its complete 0.97.0 feed contains all four upstream patches with
@@ -88,8 +90,5 @@ run and production channel activation are still pending.
 The workflow has one publisher at a time. Its GitHub token is exposed only to the publishing
 step, after compilation and verification. The checkout does not retain Git credentials.
 An upstream compatibility failure leaves the current channel and running game unchanged.
-GitHub may delay scheduled runs, and public-repository schedules can be disabled after
-60 days without repository activity; this is a GitHub scheduler limitation.
-
-References: [scheduled workflow behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule),
+References: [manual workflow behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch),
 [release asset digests](https://docs.github.com/en/rest/releases/assets).
