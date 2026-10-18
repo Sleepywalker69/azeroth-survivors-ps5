@@ -6,6 +6,10 @@ use std::ffi::{c_char, c_int, c_void, CString};
 use std::io::Write;
 use std::time::{Duration, Instant};
 
+// GitHub release redirects include CSP and signed-asset headers larger than the
+// SDK default. Keep the native parser and our redirect parser at the same bound.
+const RESPONSE_HEADER_LIMIT: usize = 64 * 1024;
+
 extern "C" {
     fn sceNetInit() -> c_int;
     fn sceNetPoolCreate(name: *const c_char, size: c_int, flags: c_int) -> c_int;
@@ -21,6 +25,7 @@ extern "C" {
     fn sceHttpCreateRequestWithURL(connection: c_int, method: c_int, url: *const c_char, size: u64) -> c_int;
     fn sceHttpDeleteRequest(id: c_int) -> c_int;
     fn sceHttpSetAutoRedirect(id: c_int, enabled: c_int) -> c_int;
+    fn sceHttpSetResponseHeaderMaxSize(id: c_int, size: usize) -> c_int;
     fn sceHttpSetResolveTimeOut(id: c_int, usec: u32) -> c_int;
     fn sceHttpSetConnectTimeOut(id: c_int, usec: u32) -> c_int;
     fn sceHttpSetSendTimeOut(id: c_int, usec: u32) -> c_int;
@@ -49,6 +54,7 @@ impl Http {
             h.http = checked("sceHttpInit", sceHttpInit(h.pool, h.ssl, 2 * 1024 * 1024))?;
             h.template = checked("sceHttpCreateTemplate", sceHttpCreateTemplate(h.http, c"AethusPS5Updater/1.0".as_ptr(), 2, 0))?;
             checked("sceHttpSetAutoRedirect", sceHttpSetAutoRedirect(h.template, 0))?;
+            checked("sceHttpSetResponseHeaderMaxSize", sceHttpSetResponseHeaderMaxSize(h.template, RESPONSE_HEADER_LIMIT))?;
             checked("sceHttpSetResolveTimeOut", sceHttpSetResolveTimeOut(h.template, 5_000_000))?;
             checked("sceHttpSetConnectTimeOut", sceHttpSetConnectTimeOut(h.template, 10_000_000))?;
             checked("sceHttpSetSendTimeOut", sceHttpSetSendTimeOut(h.template, 10_000_000))?;
@@ -92,10 +98,11 @@ impl Fetch for Http {
                 checked("sceHttpSendRequest", sceHttpSendRequest(r.request, std::ptr::null(), 0))?;
                 checked("sceHttpGetStatusCode", sceHttpGetStatusCode(r.request, &mut status))?;
             }
+            crate::log::say!("update: HTTP status {status}, redirect hop {hop}");
             if matches!(status, 301 | 302 | 303 | 307 | 308) {
                 let mut headers = std::ptr::null_mut(); let mut size = 0;
                 unsafe { checked("sceHttpGetAllResponseHeaders", sceHttpGetAllResponseHeaders(r.request, &mut headers, &mut size))?; }
-                if headers.is_null() || size > 64 * 1024 { return Err("invalid redirect headers".into()); }
+                if headers.is_null() || size > RESPONSE_HEADER_LIMIT { return Err("invalid redirect headers".into()); }
                 let text = std::str::from_utf8(unsafe { std::slice::from_raw_parts(headers.cast::<u8>(), size) }).map_err(|e| e.to_string())?;
                 let location = text.lines().filter_map(|line| line.split_once(':'))
                     .find(|(name, _)| name.eq_ignore_ascii_case("location")).map(|(_, v)| v.trim().trim_end_matches('\0'))
