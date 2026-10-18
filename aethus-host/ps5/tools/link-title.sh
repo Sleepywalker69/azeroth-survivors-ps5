@@ -118,7 +118,7 @@ fi
 # Rust writes standard output and error to descriptors 1 and 2, which a title cannot point at
 # klog; rust-compat.c's __wrap_write sends them through the stderr stream, which reaches it
 radv_link_flags+=(--wrap=write)
-radv_link_flags+=(--wrap=wasm_rt_grow_memory)
+radv_link_flags+=(--wrap=wasm_rt_allocate_memory --wrap=wasm_rt_grow_memory --wrap=wasm_rt_free_memory)
 # Mesa's dispatch tables name every entry point weakly; the ones no driver defines resolve to
 # null here instead of becoming imports no console module exports. LLD 18 drops them from the
 # dynamic symbol table under --no-dynamic-linker; LLD 22 needs -z nodynamic-undefined-weak too

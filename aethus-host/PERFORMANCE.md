@@ -21,8 +21,7 @@ instrumented home-screen measurement, not a gameplay benchmark or GPU timestamp.
 
 Earlier logs also recorded terrain collision builds up to 255 ms, hundreds of
 pipeline creations and audio starvation while loading. Those observations alone
-do not explain the sustained frame cost. The timing data does not yet isolate
-translated game computation from JavaScript bridge/runtime work.
+do not explain the sustained frame cost. Deeper measurements below separate translated game computation from bridge/runtime work.
 
 ## Next measurements
 
@@ -34,12 +33,11 @@ dominant loading cost: repeated whole-heap relocation on small memory growth.
 In the 23.5-second window ending at 79 seconds, 430 growth calls consumed 23,224.8 ms
 and all 430 moved the heap, copying approximately 290,497.6 MiB cumulatively. The
 final logical memory size was only 705.7 MiB. Other windows show the same pattern.
-The allocator recorded zero libc fallbacks. A fix that grows within a stable
-reserved address range is being implemented; no improvement is claimed yet.
+The allocator recorded zero libc fallbacks. The stable-address fix below removes these repeated copies.
 
 The title already uses the SDK's direct-memory heap. Its flexible-memory setting
-is not the total memory budget. The PS5 wasm runtime currently uses calloc/realloc
-for linear memory, whereas the Windows host reserves/commits virtual memory.
+is not the total memory budget. The original PS5 wasm runtime used calloc/realloc for linear memory, whereas the
+Windows host reserves/commits virtual memory.
 Repeated relocation is now measured as the dominant loading stall. The settled
 frame cost still needs independent attribution and comparison.
 
@@ -58,3 +56,29 @@ version after loading, and checking the result with profiling disabled as well.
 - Two input transition tests and eight updater validation tests pass.
 - Steady gameplay performance, R3 camera behavior, the PC updater's complete
   0.97.0 flow and console auto-update remain unproved.
+
+## Stable memory: console result
+
+The PS5 allocator now reserves 4 GiB of virtual address space and commits direct
+memory in 64 MiB chunks. This is virtual reservation, not a 4 GiB physical allocation.
+Explicit wasm bounds checks remain enabled. Failed initial reservation or mapping
+falls back to the original allocator; `AETHUS_WASM_REALLOC=1` forces that old path.
+
+The same 0.96.0 build now completes its large initial heap-growth burst by roughly
+15 seconds, rather than roughly 115 seconds in the earlier run. The first 15 seconds
+contain 2,427 growth calls taking 47.0 ms total, with **zero relocations or copied
+heap bytes**. Logical memory reaches 1,162.9 MiB, with 1,216 MiB committed. User
+feedback confirms loading is much better, with some remaining lag.
+
+Settled home-screen windows measured 32.7-32.8 frame callbacks/second; later
+in-world windows were around 25. This is still instrumented and is not a claim
+of smooth gameplay. Zone entry also has a separate 6.3-second frame: the containing
+window spent 2.99 seconds in string-to-wasm conversion, 0.89 seconds in `has`,
+and 0.70 seconds converting strings from wasm. A later window spent 1.24 seconds
+creating 346 render pipelines. CPU and bridge optimization remains in progress.
+
+The fix passed native allocator tests for stable addresses, zero fill, data
+preservation, limits, allocation/map failures and cleanup, then ran on the console.
+Eboot SHA-256: `d00f62432b25387e96c492b63b9ce0cb6ac381243b8b67bf2fcb83ae9dc4a525`.
+Evidence retained locally: `runtime-096-stable-01.log`, `memory-tests-01.log`,
+and `stable-memory-deploy/deploy-20261018T090807695048Z.json`.
